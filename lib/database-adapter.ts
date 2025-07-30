@@ -4,7 +4,7 @@ import { Pool } from 'pg'
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+  ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false,
 })
 
 // Mock data for preview environment
@@ -365,9 +365,15 @@ class NeonDatabaseAdapter implements DatabaseAdapter {
   async getBusiness(id: number): Promise<Business | null> {
     try {
       const result = await this.query("SELECT * FROM businesses WHERE id = $1", [id])
+      if (result[0]) {
+        console.log("✅ Business found in Neon database:", { id: result[0].id, name: result[0].name })
+      } else {
+        console.log("⚠️ Business not found in Neon database for ID:", id)
+      }
       return result[0] || null
     } catch (error) {
-      console.error("Database error:", error)
+      console.error("❌ Failed to get business from Neon database:", error)
+      console.log("🔄 Falling back to mock database adapter")
       return mockDatabaseAdapter.getBusiness(id)
     }
   }
@@ -407,9 +413,11 @@ class NeonDatabaseAdapter implements DatabaseAdapter {
           data.background_value,
         ],
       )
+      console.log("✅ Business created successfully in Neon database:", result[0])
       return result[0]
     } catch (error) {
-      console.error("Database error:", error)
+      console.error("❌ Failed to create business in Neon database:", error)
+      console.log("🔄 Falling back to mock database adapter")
       return mockDatabaseAdapter.createBusiness(data)
     }
   }
