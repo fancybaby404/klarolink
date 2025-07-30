@@ -1,5 +1,11 @@
 // Database abstraction layer for v0 compatibility
 import type { Business, FeedbackForm, SocialLink, FeedbackSubmission, AnalyticsEvent, FormField } from "./types"
+import { Pool } from 'pg'
+
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+})
 
 // Mock data for preview environment
 const mockBusinesses: Business[] = [
@@ -345,10 +351,15 @@ class MockDatabaseAdapter implements DatabaseAdapter {
 // Neon database adapter for production
 class NeonDatabaseAdapter implements DatabaseAdapter {
   private async query(sql: string, params: any[] = []): Promise<any[]> {
-    // In a real implementation, this would use the Neon database connection
-    // For now, we'll use the mock adapter as fallback
-    console.warn("Neon database not available, using mock data")
-    return []
+    try {
+      const client = await pool.connect()
+      const result = await client.query(sql, params)
+      client.release()
+      return result.rows
+    } catch (error) {
+      console.error("Database error:", error)
+      throw error
+    }
   }
 
   async getBusiness(id: number): Promise<Business | null> {
