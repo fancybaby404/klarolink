@@ -5,6 +5,9 @@ import { Pool } from 'pg'
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false,
+  max: 20,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 10000,
 })
 
 // Mock data for preview environment
@@ -182,7 +185,7 @@ export interface DatabaseAdapter {
 
   // Feedback form operations
   getFeedbackForm(businessId: number): Promise<FeedbackForm | null>
-  updateFeedbackForm(businessId: number, fields: FormField[]): Promise<void>
+  updateFeedbackForm(businessId: number, fields: FormField[], title?: string, description?: string, previewEnabled?: boolean): Promise<void>
 
   // Social links operations
   getSocialLinks(businessId: number): Promise<SocialLink[]>
@@ -249,21 +252,26 @@ class MockDatabaseAdapter implements DatabaseAdapter {
     return this.feedbackForms.find((f) => f.business_id === businessId && f.is_active) || null
   }
 
-  async updateFeedbackForm(businessId: number, fields: FormField[]): Promise<void> {
+  async updateFeedbackForm(businessId: number, fields: FormField[], title?: string, description?: string, previewEnabled?: boolean): Promise<void> {
     const index = this.feedbackForms.findIndex((f) => f.business_id === businessId)
     if (index !== -1) {
       this.feedbackForms[index] = {
         ...this.feedbackForms[index],
         fields,
+        title: title || this.feedbackForms[index].title,
+        description: description || this.feedbackForms[index].description,
+        preview_enabled: previewEnabled !== undefined ? previewEnabled : this.feedbackForms[index].preview_enabled,
         updated_at: new Date().toISOString(),
       }
     } else {
       this.feedbackForms.push({
         id: Math.max(...this.feedbackForms.map((f) => f.id)) + 1,
         business_id: businessId,
-        title: "Customer Feedback",
+        title: title || "Customer Feedback",
+        description: description || "We value your feedback!",
         fields,
         is_active: true,
+        preview_enabled: previewEnabled !== undefined ? previewEnabled : false,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
@@ -351,30 +359,52 @@ class MockDatabaseAdapter implements DatabaseAdapter {
 // Neon database adapter for production
 class NeonDatabaseAdapter implements DatabaseAdapter {
   private async query(sql: string, params: any[] = []): Promise<any[]> {
+    let client;
     try {
-      const client = await pool.connect()
-      const result = await client.query(sql, params)
-      client.release()
-      return result.rows
+      console.log(`🔍 Executing query: ${sql.substring(0, 100)}${sql.length > 100 ? '...' : ''}`);
+      client = await pool.connect();
+      const result = await client.query(sql, params);
+      console.log(`✅ Query executed successfully, returned ${result.rows.length} rows`);
+      return result.rows;
+    } catch (error: any) {
+      console.error("❌ Database query error:", {
+        message: error.message,
+        code: error.code,
+        detail: error.detail,
+        sql: sql.substring(0, 200)
+      });
+      throw error;
+    } finally {
+      if (client) {
+        client.release();
+      }
+    }
+  }
+
+  private async testConnection(): Promise<boolean> {
+    try {
+      const result = await this.query('SELECT 1 as test');
+      return result.length > 0;
     } catch (error) {
-      console.error("Database error:", error)
-      throw error
+      console.error("❌ Database connection test failed:", error);
+      return false;
     }
   }
 
   async getBusiness(id: number): Promise<Business | null> {
     try {
-      const result = await this.query("SELECT * FROM businesses WHERE id = $1", [id])
+      const result = await this.query("SELECT * FROM businesses WHERE id = $1", [id]);
       if (result[0]) {
-        console.log("✅ Business found in Neon database:", { id: result[0].id, name: result[0].name })
+        console.log("✅ Business found in Neon database:", { id: result[0].id, name: result[0].name });
+        return result[0];
       } else {
-        console.log("⚠️ Business not found in Neon database for ID:", id)
+        console.log("⚠️ Business not found in Neon database for ID:", id);
+        return null;
       }
-      return result[0] || null
-    } catch (error) {
-      console.error("❌ Failed to get business from Neon database:", error)
-      console.log("🔄 Falling back to mock database adapter")
-      return mockDatabaseAdapter.getBusiness(id)
+    } catch (error: any) {
+      console.error("❌ Failed to get business from Neon database:", error.message);
+      console.log("🔄 Falling back to mock database adapter");
+      return mockDatabaseAdapter.getBusiness(id);
     }
   }
 
@@ -424,19 +454,84 @@ class NeonDatabaseAdapter implements DatabaseAdapter {
 
   async updateBusiness(id: number, data: Partial<Business>): Promise<Business | null> {
     try {
-      const result = await this.query(
-        `UPDATE businesses SET 
-         name = COALESCE($2, name),
-         background_type = COALESCE($3, background_type),
-         background_value = COALESCE($4, background_value),
-         updated_at = CURRENT_TIMESTAMP
-         WHERE id = $1 RETURNING *`,
-        [id, data.name, data.background_type, data.background_value],
-      )
-      return result[0] || null
-    } catch (error) {
-      console.error("Database error:", error)
-      return mockDatabaseAdapter.updateBusiness(id, data)
+      console.log(`🔍 Updating business ID ${id} with data:`, Object.keys(data));
+
+      // Build dynamic query based on provided fields
+      const updateFields: string[] = [];
+      const values: any[] = [id]; // First parameter is always the ID
+      let paramIndex = 2;
+
+      if (data.name !== undefined) {
+        updateFields.push(`name = $${paramIndex}`);
+        values.push(data.name);
+        paramIndex++;
+      }
+
+      if (data.email !== undefined) {
+        updateFields.push(`email = $${paramIndex}`);
+        values.push(data.email);
+        paramIndex++;
+      }
+
+      if (data.password_hash !== undefined) {
+        updateFields.push(`password_hash = $${paramIndex}`);
+        values.push(data.password_hash);
+        paramIndex++;
+      }
+
+      if (data.profile_image !== undefined) {
+        updateFields.push(`profile_image = $${paramIndex}`);
+        values.push(data.profile_image);
+        paramIndex++;
+      }
+
+      if (data.slug !== undefined) {
+        updateFields.push(`slug = $${paramIndex}`);
+        values.push(data.slug);
+        paramIndex++;
+      }
+
+      if (data.background_type !== undefined) {
+        updateFields.push(`background_type = $${paramIndex}`);
+        values.push(data.background_type);
+        paramIndex++;
+      }
+
+      if (data.background_value !== undefined) {
+        updateFields.push(`background_value = $${paramIndex}`);
+        values.push(data.background_value);
+        paramIndex++;
+      }
+
+      // Always update the updated_at timestamp
+      updateFields.push('updated_at = CURRENT_TIMESTAMP');
+
+      if (updateFields.length === 1) { // Only updated_at field
+        console.log('⚠️  No fields to update');
+        return this.getBusiness(id);
+      }
+
+      const query = `
+        UPDATE businesses
+        SET ${updateFields.join(', ')}
+        WHERE id = $1
+        RETURNING *
+      `;
+
+      console.log(`🔍 Executing update query with ${values.length} parameters`);
+      const result = await this.query(query, values);
+
+      if (result[0]) {
+        console.log(`✅ Business updated successfully: ${result[0].name}`);
+      } else {
+        console.log(`⚠️  Business not found for update: ID ${id}`);
+      }
+
+      return result[0] || null;
+    } catch (error: any) {
+      console.error("❌ Database error in updateBusiness:", error.message);
+      console.log("🔄 Falling back to mock database adapter");
+      return mockDatabaseAdapter.updateBusiness(id, data);
     }
   }
 
@@ -453,18 +548,45 @@ class NeonDatabaseAdapter implements DatabaseAdapter {
     }
   }
 
-  async updateFeedbackForm(businessId: number, fields: FormField[]): Promise<void> {
+  async updateFeedbackForm(businessId: number, fields: FormField[], title?: string, description?: string, previewEnabled?: boolean): Promise<void> {
     try {
-      await this.query(
-        `INSERT INTO feedback_forms (business_id, title, fields)
-         VALUES ($1, $2, $3)
-         ON CONFLICT (business_id) DO UPDATE SET
-         fields = $3, updated_at = CURRENT_TIMESTAMP`,
-        [businessId, "Customer Feedback", JSON.stringify(fields)],
-      )
-    } catch (error) {
-      console.error("Database error:", error)
-      return mockDatabaseAdapter.updateFeedbackForm(businessId, fields)
+      console.log(`🔍 Updating feedback form for business ID: ${businessId}`);
+      console.log(`📝 Form data:`, { title, description, fieldsCount: fields.length, previewEnabled });
+
+      // First, check if a form already exists for this business
+      const existingForm = await this.query(
+        "SELECT id FROM feedback_forms WHERE business_id = $1 AND is_active = true LIMIT 1",
+        [businessId]
+      );
+
+      if (existingForm.length > 0) {
+        // Update existing form
+        console.log(`📝 Updating existing form ID: ${existingForm[0].id}`);
+        await this.query(
+          `UPDATE feedback_forms
+           SET fields = $2,
+               title = COALESCE($3, title),
+               description = COALESCE($4, description),
+               preview_enabled = COALESCE($5, preview_enabled),
+               updated_at = CURRENT_TIMESTAMP
+           WHERE id = $1`,
+          [existingForm[0].id, JSON.stringify(fields), title, description, previewEnabled]
+        );
+      } else {
+        // Create new form
+        console.log(`📝 Creating new form for business ID: ${businessId}`);
+        await this.query(
+          `INSERT INTO feedback_forms (business_id, title, description, fields, is_active, preview_enabled)
+           VALUES ($1, $2, $3, $4, $5, $6)`,
+          [businessId, title || "Customer Feedback", description || "We value your feedback!", JSON.stringify(fields), true, previewEnabled !== undefined ? previewEnabled : false]
+        );
+      }
+
+      console.log(`✅ Feedback form updated successfully for business ID: ${businessId}`);
+    } catch (error: any) {
+      console.error("❌ Database error in updateFeedbackForm:", error.message);
+      console.log("🔄 Falling back to mock database adapter");
+      return mockDatabaseAdapter.updateFeedbackForm(businessId, fields, title, description, previewEnabled);
     }
   }
 

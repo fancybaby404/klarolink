@@ -19,6 +19,7 @@ export interface FeedbackForm {
   description?: string
   fields: FormField[]
   is_active: boolean
+  preview_enabled?: boolean
   created_at: string
   updated_at: string
 }

@@ -24,6 +24,7 @@ export async function GET(request: NextRequest) {
     const stats = await db.getAnalyticsStats(business.id)
     const recentFeedback = await db.getFeedbackSubmissions(business.id, 5)
     const socialLinks = await db.getSocialLinks(business.id)
+    const feedbackForm = await db.getFeedbackForm(business.id)
 
     const formattedRecentFeedback = recentFeedback.map((feedback) => ({
       id: feedback.id,
@@ -35,6 +36,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       business,
       socialLinks,
+      feedbackForm,
       stats: {
         ...stats,
         recentFeedback: formattedRecentFeedback,

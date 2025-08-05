@@ -12,6 +12,7 @@ export async function GET(request: NextRequest, { params }: { params: { slug: st
     // Get feedback form
     const form = await db.getFeedbackForm(business.id)
     const formFields = form?.fields || []
+    const previewEnabled = form?.preview_enabled !== false // Default to true if not set
 
     // Get social links
     const socialLinks = await db.getSocialLinks(business.id)
@@ -20,6 +21,7 @@ export async function GET(request: NextRequest, { params }: { params: { slug: st
       business,
       formFields,
       socialLinks,
+      previewEnabled,
     })
   } catch (error) {
     console.error("Page fetch error:", error)
