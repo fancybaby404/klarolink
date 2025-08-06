@@ -20,6 +20,7 @@ CREATE TABLE IF NOT EXISTS feedback_forms (
   description TEXT,
   fields TEXT NOT NULL DEFAULT '[]',
   is_active BOOLEAN DEFAULT 1,
+  preview_enabled BOOLEAN DEFAULT 0,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (business_id) REFERENCES businesses (id) ON DELETE CASCADE

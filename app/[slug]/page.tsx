@@ -15,6 +15,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog"
 import { Instagram, Twitter, Facebook, Linkedin, Youtube, Globe, Send, CheckCircle, Eye, Share2, Copy, QrCode } from "lucide-react"
 import { useParams } from "next/navigation"
+import { SocialLinksDisplay } from "@/components/social-links-display"
 import type { Business, FormField, SocialLink } from "@/lib/database"
 import QRCode from "qrcode"
 
@@ -25,15 +26,7 @@ interface FeedbackPageData {
   previewEnabled: boolean
 }
 
-const socialIcons = {
-  website: Globe,
-  instagram: Instagram,
-  twitter: Twitter,
-  facebook: Facebook,
-  linkedin: Linkedin,
-  youtube: Youtube,
-  tiktok: Globe,
-}
+
 
 export default function FeedbackPage() {
   const params = useParams()
@@ -539,44 +532,26 @@ export default function FeedbackPage() {
           </Card>
         )}
 
-        {/* Social Links */}
-        {data.socialLinks.length > 0 && (
-          <Card className="bg-white/95 backdrop-blur-sm shadow-2xl border-0">
-            <CardContent className="pt-6">
-              <div className="grid grid-cols-2 gap-3">
-                {data.socialLinks
-                  .filter((link) => link.is_active)
-                  .map((link, index) => {
-                    const Icon = socialIcons[link.platform as keyof typeof socialIcons] || Globe
-                    return (
-                      <Button
-                        key={index}
-                        variant="outline"
-                        className="flex items-center gap-2 h-12 bg-transparent"
-                        onClick={() => {
-                          window.open(link.url, "_blank")
-                          // Track link click
-                          fetch(`/api/analytics/${slug}`, {
-                            method: "POST",
-                            headers: {
-                              "Content-Type": "application/json",
-                            },
-                            body: JSON.stringify({
-                              event_type: "link_click",
-                              event_data: { platform: link.platform },
-                            }),
-                          }).catch(console.error)
-                        }}
-                      >
-                        <Icon className="h-4 w-4" />
-                        <span className="capitalize">{link.platform}</span>
-                      </Button>
-                    )
-                  })}
-              </div>
-            </CardContent>
-          </Card>
-        )}
+        {/* Enhanced Social Links */}
+        <SocialLinksDisplay
+          socialLinks={data.socialLinks}
+          onLinkClick={(platform, url) => {
+            // Track link click
+            fetch(`/api/analytics/${slug}`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                event_type: "link_click",
+                event_data: { platform },
+              }),
+            }).catch(console.error)
+          }}
+          layout="grid"
+          size="md"
+          showLabels={true}
+        />
 
         {/* Footer */}
         <div className="text-center mt-8 text-white/70 text-sm">

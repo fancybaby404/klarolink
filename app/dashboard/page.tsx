@@ -14,6 +14,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { Switch } from "@/components/ui/switch"
+import { toast } from "sonner"
 import {
   SidebarProvider,
   Sidebar,
@@ -47,6 +48,9 @@ import {
   GripVertical
 } from "lucide-react"
 import Link from "next/link"
+import { SocialLinksManager } from "@/components/social-links-manager"
+import { BusinessProfileManager } from "@/components/business-profile-manager"
+import { LoadingSpinner, LoadingState } from "@/components/loading-spinner"
 import type { Business } from "@/lib/database"
 import type { FormField, SocialLink, FeedbackForm } from "@/lib/types"
 
@@ -307,8 +311,6 @@ function ProfileTab({ data }: { data: DashboardData }) {
   const [backgroundType, setBackgroundType] = useState<"color" | "image">("color")
   const [backgroundValue, setBackgroundValue] = useState("#6366f1")
   const [socialLinks, setSocialLinks] = useState<SocialLink[]>(data.socialLinks || [])
-  const [newSocialPlatform, setNewSocialPlatform] = useState("")
-  const [newSocialUrl, setNewSocialUrl] = useState("")
   const [isSaving, setIsSaving] = useState(false)
 
   const handleSaveProfile = async () => {
@@ -349,26 +351,7 @@ function ProfileTab({ data }: { data: DashboardData }) {
     }
   }
 
-  const handleAddSocialLink = () => {
-    if (newSocialPlatform && newSocialUrl) {
-      const newLink: SocialLink = {
-        id: Date.now(), // Temporary ID
-        business_id: data.business.id,
-        platform: newSocialPlatform.toLowerCase(),
-        url: newSocialUrl,
-        display_order: socialLinks.length,
-        is_active: true,
-        created_at: new Date().toISOString()
-      }
-      setSocialLinks([...socialLinks, newLink])
-      setNewSocialPlatform("")
-      setNewSocialUrl("")
-    }
-  }
 
-  const handleRemoveSocialLink = (id: number) => {
-    setSocialLinks(socialLinks.filter(link => link.id !== id))
-  }
 
   return (
     <div className="space-y-6">
@@ -426,67 +409,21 @@ function ProfileTab({ data }: { data: DashboardData }) {
         </CardContent>
       </Card>
 
-      {/* Social Links */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Social Links</CardTitle>
-          <CardDescription>Add your social media profiles and website</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {/* Existing Social Links */}
-          <div className="space-y-2">
-            {socialLinks.map((link) => (
-              <div key={link.id} className="flex items-center gap-3 p-3 border rounded-lg">
-                <div className="capitalize font-medium text-sm min-w-20">
-                  {link.platform}
-                </div>
-                <Input
-                  value={link.url}
-                  onChange={(e) => {
-                    setSocialLinks(socialLinks.map(l =>
-                      l.id === link.id ? { ...l, url: e.target.value } : l
-                    ))
-                  }}
-                  className="flex-1"
-                />
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleRemoveSocialLink(link.id)}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </div>
-            ))}
-          </div>
+      {/* Business Profile Management */}
+      <BusinessProfileManager
+        business={data.business}
+        onBusinessUpdate={(updates) => {
+          // Update local state
+          setData(prev => prev ? { ...prev, business: { ...prev.business, ...updates } } : null)
+          // The actual save will be handled by the component
+        }}
+      />
 
-          {/* Add New Social Link */}
-          <div className="flex gap-2">
-            <Select value={newSocialPlatform} onValueChange={setNewSocialPlatform}>
-              <SelectTrigger className="w-40">
-                <SelectValue placeholder="Platform" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="website">Website</SelectItem>
-                <SelectItem value="instagram">Instagram</SelectItem>
-                <SelectItem value="twitter">Twitter</SelectItem>
-                <SelectItem value="facebook">Facebook</SelectItem>
-                <SelectItem value="linkedin">LinkedIn</SelectItem>
-                <SelectItem value="youtube">YouTube</SelectItem>
-              </SelectContent>
-            </Select>
-            <Input
-              placeholder="https://..."
-              value={newSocialUrl}
-              onChange={(e) => setNewSocialUrl(e.target.value)}
-              className="flex-1"
-            />
-            <Button onClick={handleAddSocialLink} disabled={!newSocialPlatform || !newSocialUrl}>
-              <Plus className="h-4 w-4" />
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+      {/* Enhanced Social Links */}
+      <SocialLinksManager
+        socialLinks={socialLinks}
+        onSocialLinksChange={setSocialLinks}
+      />
 
       {/* Save Button */}
       <div className="flex justify-end">
@@ -713,16 +650,66 @@ export default function DashboardPage() {
 
       if (response.ok) {
         console.log('✅ Form saved successfully')
+        toast.success('Form saved successfully', {
+          description: 'Your feedback form has been updated'
+        })
         setIsEditingForm(false)
         // Refresh dashboard data to show updated form
         fetchDashboardData()
       } else {
         console.error('❌ Failed to save form')
+        toast.error('Failed to save form', {
+          description: 'Please try again'
+        })
       }
     } catch (error) {
       console.error('❌ Error saving form:', error)
+      toast.error('Error saving form', {
+        description: 'Please check your connection and try again'
+      })
     } finally {
       setIsSavingForm(false)
+    }
+  }
+
+  const handlePreviewToggle = async (enabled: boolean) => {
+    setPreviewEnabled(enabled)
+
+    // Auto-save the preview setting
+    if (data?.business.id) {
+      try {
+        const response = await fetch('/api/forms', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          },
+          body: JSON.stringify({
+            business_id: data.business.id,
+            title: formTitle || 'Feedback Form',
+            description: formDescription || '',
+            fields: formFields,
+            preview_enabled: enabled
+          })
+        })
+
+        if (response.ok) {
+          console.log(`✅ Preview setting saved: ${enabled ? 'enabled' : 'disabled'}`)
+          toast.success(`Live preview ${enabled ? 'enabled' : 'disabled'}`, {
+            description: 'Setting saved automatically'
+          })
+        } else {
+          console.error('❌ Failed to save preview setting')
+          toast.error('Failed to save preview setting', {
+            description: 'Please try again'
+          })
+        }
+      } catch (error) {
+        console.error('❌ Error saving preview setting:', error)
+        toast.error('Error saving preview setting', {
+          description: 'Please check your connection and try again'
+        })
+      }
     }
   }
 
@@ -910,29 +897,23 @@ export default function DashboardPage() {
     router.push("/")
   }
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading dashboard...</p>
-        </div>
-      </div>
-    )
-  }
+  return (
+    <LoadingState
+      isLoading={loading}
+      error={error}
+      loadingText="Loading your dashboard..."
+      errorText="Failed to load dashboard"
+      onRetry={() => {
+        setError("")
+        setLoading(true)
+        fetchDashboardData()
+      }}
+    >
+      <DashboardContent />
+    </LoadingState>
+  )
 
-  if (error) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center max-w-md">
-          <Alert variant="destructive" className="mb-4">
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-          <Button onClick={fetchDashboardData}>Try Again</Button>
-        </div>
-      </div>
-    )
-  }
+  function DashboardContent() {
 
   if (!data) {
     return (
@@ -1215,7 +1196,7 @@ export default function DashboardPage() {
                           <Switch
                             id="preview-enabled"
                             checked={previewEnabled}
-                            onCheckedChange={setPreviewEnabled}
+                            onCheckedChange={handlePreviewToggle}
                           />
                           <Label htmlFor="preview-enabled" className="font-medium">
                             Enable Live Preview
@@ -1499,7 +1480,11 @@ export default function DashboardPage() {
                               onClick={handleSaveForm}
                               disabled={isSavingForm}
                             >
-                              <Save className="h-4 w-4" />
+                              {isSavingForm ? (
+                                <LoadingSpinner size="sm" />
+                              ) : (
+                                <Save className="h-4 w-4" />
+                              )}
                               {isSavingForm ? 'Saving...' : 'Save Form'}
                             </Button>
                           </div>
@@ -1737,7 +1722,7 @@ export default function DashboardPage() {
                               <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => setPreviewEnabled(true)}
+                                onClick={() => handlePreviewToggle(true)}
                                 className="gap-2"
                               >
                                 <Eye className="h-4 w-4" />
@@ -1785,5 +1770,6 @@ export default function DashboardPage() {
         </SidebarInset>
       </div>
     </SidebarProvider>
-  )
+    )
+  }
 }

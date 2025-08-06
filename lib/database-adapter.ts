@@ -74,6 +74,7 @@ const mockFeedbackForms: FeedbackForm[] = [
       },
     ],
     is_active: true,
+    preview_enabled: false,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   },
