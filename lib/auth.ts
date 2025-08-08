@@ -1,7 +1,7 @@
 import bcrypt from "bcryptjs"
 import jwt from "jsonwebtoken"
 import { db } from "./database-adapter"
-import type { Business } from "./types"
+import type { Business, User } from "./types"
 
 const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key-change-in-production"
 
@@ -22,9 +22,21 @@ export function generateToken(businessId: number): string {
   return jwt.sign({ businessId }, JWT_SECRET, { expiresIn: "7d" })
 }
 
+export function generateUserToken(userId: number): string {
+  return jwt.sign({ userId }, JWT_SECRET, { expiresIn: "7d" })
+}
+
 export function verifyToken(token: string): { businessId: number } | null {
   try {
     return jwt.verify(token, JWT_SECRET) as { businessId: number }
+  } catch {
+    return null
+  }
+}
+
+export function verifyUserToken(token: string): { userId: number } | null {
+  try {
+    return jwt.verify(token, JWT_SECRET) as { userId: number }
   } catch {
     return null
   }
@@ -201,6 +213,7 @@ export async function updateBusinessProfile(
   data: {
     name?: string
     profile_image?: string
+    location?: string
   }
 ): Promise<Business | null> {
   try {
@@ -226,6 +239,15 @@ export async function updateBusinessProfile(
         }
       } else {
         updateData.profile_image = null
+      }
+    }
+
+    if (data.location !== undefined) {
+      // Allow null/empty string to remove location
+      if (data.location && data.location.trim()) {
+        updateData.location = data.location.trim()
+      } else {
+        updateData.location = null
       }
     }
 
@@ -320,4 +342,68 @@ export async function generateUniqueSlug(baseName: string): Promise<string> {
 
   // Fallback to timestamp-based slug
   return `business-${Date.now()}`
+}
+
+// =====================================================
+// USER AUTHENTICATION FUNCTIONS
+// =====================================================
+
+export async function getUserByEmail(email: string): Promise<User | null> {
+  try {
+    console.log(`🔍 Auth: Getting user by email: ${email}`)
+    const user = await db.getUserByEmail(email)
+    if (user) {
+      console.log(`✅ Auth: User found by email - ${user.first_name} ${user.last_name} (ID: ${user.id})`)
+    } else {
+      console.log(`⚠️  Auth: User not found for email: ${email}`)
+    }
+    return user
+  } catch (error) {
+    console.error(`❌ Auth: Error getting user by email ${email}:`, error)
+    return null
+  }
+}
+
+export async function getUser(id: number): Promise<User | null> {
+  try {
+    console.log(`🔍 Auth: Getting user by ID: ${id}`)
+    const user = await db.getUser(id)
+    if (user) {
+      console.log(`✅ Auth: User found - ${user.first_name} ${user.last_name} (${user.email})`)
+    } else {
+      console.log(`⚠️  Auth: User not found for ID: ${id}`)
+    }
+    return user
+  } catch (error) {
+    console.error(`❌ Auth: Error getting user by ID ${id}:`, error)
+    return null
+  }
+}
+
+export async function getUserBusinessAccess(userId: number): Promise<Business[]> {
+  try {
+    console.log(`🔍 Auth: Getting business access for user ID: ${userId}`)
+    const businesses = await db.getUserBusinessAccess(userId)
+    console.log(`✅ Auth: Found ${businesses.length} businesses for user ${userId}`)
+    return businesses
+  } catch (error) {
+    console.error(`❌ Auth: Error getting user business access for user ${userId}:`, error)
+    return []
+  }
+}
+
+export async function validateUserBusinessAccess(userId: number, businessId: number): Promise<boolean> {
+  try {
+    console.log(`🔍 Auth: Validating user ${userId} access to business ${businessId}`)
+    const hasAccess = await db.validateUserBusinessAccess(userId, businessId)
+    if (hasAccess) {
+      console.log(`✅ Auth: User ${userId} has access to business ${businessId}`)
+    } else {
+      console.log(`⚠️  Auth: User ${userId} does not have access to business ${businessId}`)
+    }
+    return hasAccess
+  } catch (error) {
+    console.error(`❌ Auth: Error validating user business access:`, error)
+    return false
+  }
 }

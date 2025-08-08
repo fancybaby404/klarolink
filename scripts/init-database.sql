@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS businesses (
   password_hash TEXT NOT NULL,
   profile_image TEXT,
   slug TEXT UNIQUE NOT NULL,
+  location TEXT,
   background_type TEXT DEFAULT 'color',
   background_value TEXT DEFAULT '#6366f1',
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,

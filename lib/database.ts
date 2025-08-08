@@ -16,6 +16,7 @@ export interface Business {
   password_hash: string
   profile_image?: string
   slug: string
+  location?: string
   background_type: "color" | "image"
   background_value: string
   created_at: string

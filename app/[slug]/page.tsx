@@ -15,7 +15,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog"
 import { Instagram, Twitter, Facebook, Linkedin, Youtube, Globe, Send, CheckCircle, Eye, Share2, Copy, QrCode } from "lucide-react"
 import { useParams } from "next/navigation"
-import { SocialLinksDisplay } from "@/components/social-links-display"
+import { SocialLinksDisplay, SocialLinksCompact } from "@/components/social-links-display"
 import type { Business, FormField, SocialLink } from "@/lib/database"
 import QRCode from "qrcode"
 
@@ -26,7 +26,34 @@ interface FeedbackPageData {
   previewEnabled: boolean
 }
 
+// Function to calculate luminance and determine optimal button color
+function getOptimalButtonColor(backgroundColor: string) {
+  // Convert hex to RGB
+  const hex = backgroundColor.replace('#', '')
+  const r = parseInt(hex.substr(0, 2), 16)
+  const g = parseInt(hex.substr(2, 2), 16)
+  const b = parseInt(hex.substr(4, 2), 16)
 
+  // Calculate luminance
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255
+
+  // Return appropriate color based on background luminance
+  if (luminance > 0.5) {
+    // Light background - use dark button
+    return {
+      backgroundColor: '#333135', // header color
+      color: '#FDFFFA', // background color (light)
+      hoverColor: '#5F5B62' // subheader color
+    }
+  } else {
+    // Dark background - use light button
+    return {
+      backgroundColor: '#CC79F0', // primary color
+      color: '#FDFFFA', // background color (light)
+      hoverColor: '#3E7EF7' // secondary color
+    }
+  }
+}
 
 export default function FeedbackPage() {
   const params = useParams()
@@ -93,7 +120,7 @@ export default function FeedbackPage() {
     setError("")
     setSubmitting(true)
 
-    // Validate required fields
+    // Validate required fields first
     const requiredFields = data?.formFields.filter((field) => field.required) || []
     for (const field of requiredFields) {
       if (!formData[field.id] || formData[field.id] === "") {
@@ -103,9 +130,17 @@ export default function FeedbackPage() {
       }
     }
 
-    // Show login dialog instead of submitting directly
+    // Check if user is authenticated
+    const token = localStorage.getItem("token")
+    if (!token) {
+      setSubmitting(false)
+      setShowLoginDialog(true)
+      return
+    }
+
+    // Submit feedback with authentication
+    await submitFeedback()
     setSubmitting(false)
-    setShowLoginDialog(true)
   }
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -130,7 +165,10 @@ export default function FeedbackPage() {
         throw new Error(errorData.error || 'Login failed')
       }
 
-      const { user } = await response.json()
+      const { token, user } = await response.json()
+
+      // Store the token for future requests
+      localStorage.setItem("token", token)
 
       // Now submit the feedback
       await submitFeedback()
@@ -147,34 +185,57 @@ export default function FeedbackPage() {
 
   const submitFeedback = async () => {
     try {
+      console.log("🚀 Submitting feedback:", { slug, formData })
+
+      // Get authentication token from localStorage
+      const token = localStorage.getItem("token")
+      if (!token) {
+        throw new Error("Authentication required. Please log in to submit feedback.")
+      }
+
       const response = await fetch(`/api/feedback/${slug}`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
         },
         body: JSON.stringify({
           formData,
         }),
       })
 
+      console.log("📡 Feedback API response:", response.status, response.statusText)
+
       if (!response.ok) {
-        throw new Error("Failed to submit feedback")
+        const errorData = await response.json().catch(() => ({ error: "Unknown error" }))
+        console.error("❌ Feedback submission failed:", errorData)
+        throw new Error(errorData.error || "Failed to submit feedback")
       }
+
+      const result = await response.json()
+      console.log("✅ Feedback submitted successfully:", result)
 
       setSubmitted(true)
 
       // Track form submission
-      await fetch(`/api/analytics/${slug}`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          event_type: "form_submit",
-        }),
-      })
+      try {
+        await fetch(`/api/analytics/${slug}`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            event_type: "form_submit",
+          }),
+        })
+        console.log("📊 Analytics tracked successfully")
+      } catch (analyticsError) {
+        console.warn("⚠️ Analytics tracking failed:", analyticsError)
+        // Don't fail the whole submission if analytics fails
+      }
     } catch (error) {
-      setError("Failed to submit feedback. Please try again.")
+      console.error("❌ Feedback submission error:", error)
+      setError(error instanceof Error ? error.message : "Failed to submit feedback. Please try again.")
     }
   }
 
@@ -345,10 +406,10 @@ export default function FeedbackPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-subheader">Loading...</p>
         </div>
       </div>
     )
@@ -356,10 +417,10 @@ export default function FeedbackPage() {
 
   if (!data) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Page Not Found</h1>
-          <p className="text-gray-600">The feedback page you're looking for doesn't exist.</p>
+          <h1 className="text-2xl font-bold text-header mb-2">Page Not Found</h1>
+          <p className="text-body">The feedback page you're looking for doesn't exist.</p>
         </div>
       </div>
     )
@@ -374,17 +435,45 @@ export default function FeedbackPage() {
         }
       : { backgroundColor: data.business.background_value }
 
+  // Use custom button colors from business settings, or calculate optimal colors based on background
+  const buttonColors = (() => {
+    // If business has custom button colors, use them
+    if (data.business.submit_button_color) {
+      return {
+        backgroundColor: data.business.submit_button_color,
+        color: data.business.submit_button_text_color || '#FDFFFA',
+        hoverColor: data.business.submit_button_hover_color || '#3E7EF7'
+      }
+    }
+
+    // Otherwise, calculate optimal colors based on background
+    if (data.business.background_type === "color" && data.business.background_value) {
+      return getOptimalButtonColor(data.business.background_value)
+    }
+
+    // Default fallback colors
+    return {
+      backgroundColor: '#CC79F0', // default primary
+      color: '#FDFFFA',
+      hoverColor: '#3E7EF7'
+    }
+  })()
+
   if (submitted) {
     return (
       <div className="min-h-screen flex items-center justify-center p-4" style={backgroundStyle}>
-        <div className="bg-white/90 backdrop-blur-sm rounded-2xl p-8 max-w-md w-full text-center shadow-2xl">
-          <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Thank You!</h1>
-          <p className="text-gray-600 mb-6">
+        <div className="bg-white/95 backdrop-blur-sm rounded-2xl p-8 max-w-md w-full text-center shadow-2xl border border-shadow">
+          <CheckCircle className="h-16 w-16 text-success mx-auto mb-4" />
+          <h1 className="text-2xl font-bold text-header mb-2">Thank You!</h1>
+          <p className="text-body mb-6">
             Your feedback has been submitted successfully. We appreciate you taking the time to share your thoughts with
             us.
           </p>
-          <Button onClick={() => window.location.reload()} variant="outline">
+          <Button
+            onClick={() => window.location.reload()}
+            variant="outline"
+            className="border-shadow text-header hover:bg-shadow hover:text-primary"
+          >
             Submit Another Response
           </Button>
         </div>
@@ -400,9 +489,9 @@ export default function FeedbackPage() {
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
-                variant="secondary"
+                variant="outline"
                 size="sm"
-                className="bg-white/90 backdrop-blur-sm hover:bg-white shadow-lg"
+                className="bg-white/95 backdrop-blur-sm hover:bg-shadow border-shadow text-header hover:text-primary shadow-lg transition-all duration-200"
               >
                 <Share2 className="h-4 w-4 mr-2" />
                 Share
@@ -449,27 +538,37 @@ export default function FeedbackPage() {
               <img
                 src={data.business.profile_image || "/placeholder.svg"}
                 alt={data.business.name}
-                className="w-20 h-20 rounded-full object-cover mx-auto mb-4 border-4 border-white shadow-lg"
+                className="w-24 h-24 rounded-full object-cover mx-auto mb-4 border-4 border-white shadow-lg"
               />
             ) : (
-              <div className="w-20 h-20 rounded-full bg-white flex items-center justify-center mx-auto mb-4 border-4 border-white shadow-lg">
-                <span className="text-2xl font-bold text-gray-700">{data.business.name.charAt(0).toUpperCase()}</span>
+              <div className="w-24 h-24 rounded-full bg-white flex items-center justify-center mx-auto mb-4 border-4 border-white shadow-lg">
+                <span className="text-2xl font-bold text-header">{data.business.name.charAt(0).toUpperCase()}</span>
               </div>
             )}
           </div>
           <h1 className="text-2xl font-bold text-white mb-2 drop-shadow-lg">{data.business.name}</h1>
+
+          {/* Location Display */}
+          {data.business.location && (
+            <div className="flex items-center justify-center gap-1 mb-2">
+              <div className="w-1 h-1 bg-white/60 rounded-full"></div>
+              <p className="text-white/80 text-sm drop-shadow">{data.business.location}</p>
+              <div className="w-1 h-1 bg-white/60 rounded-full"></div>
+            </div>
+          )}
+
           <p className="text-white/90 drop-shadow">We'd love to hear your feedback!</p>
         </div>
 
         {/* Feedback Form */}
         {(isPreviewMode || data.previewEnabled) && (
-          <Card className="bg-white/95 backdrop-blur-sm shadow-2xl border-0 mb-6">
+          <Card className="bg-white/95 backdrop-blur-sm shadow-2xl border border-shadow mb-6">
             <CardHeader>
-              <CardTitle>Share Your Experience</CardTitle>
-              <CardDescription>Your feedback helps us improve our service</CardDescription>
+              <CardTitle className="text-header">Share Your Experience</CardTitle>
+              <CardDescription className="text-subheader">Your feedback helps us improve our service</CardDescription>
               {isPreviewMode && (
-                <div className="bg-blue-100 border border-blue-300 rounded-lg p-3 mt-2">
-                  <p className="text-sm text-blue-800 font-medium">
+                <div className="bg-info/10 border border-info/20 rounded-lg p-3 mt-2">
+                  <p className="text-sm text-info font-medium">
                     🔍 Preview Mode - This form is being previewed from the dashboard
                   </p>
                 </div>
@@ -493,10 +592,24 @@ export default function FeedbackPage() {
                 </div>
               ))}
 
-              <Button type="submit" className="w-full" disabled={submitting}>
+              <Button
+                type="submit"
+                className="w-full transition-all duration-200 shadow-sm border-0"
+                disabled={submitting}
+                style={{
+                  backgroundColor: buttonColors.backgroundColor,
+                  color: buttonColors.color,
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = buttonColors.hoverColor
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = buttonColors.backgroundColor
+                }}
+              >
                 {submitting ? (
                   <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary-foreground mr-2"></div>
                     Submitting...
                   </>
                 ) : (
@@ -513,17 +626,17 @@ export default function FeedbackPage() {
 
         {/* Form Disabled Message */}
         {!isPreviewMode && !data.previewEnabled && (
-          <Card className="bg-white/95 backdrop-blur-sm shadow-2xl border-0 mb-6">
+          <Card className="bg-white/95 backdrop-blur-sm shadow-2xl border border-shadow mb-6">
             <CardContent className="pt-6 text-center">
               <div className="space-y-4">
-                <div className="w-16 h-16 bg-gray-300 rounded-full flex items-center justify-center mx-auto">
-                  <Eye className="h-8 w-8 text-gray-500" />
+                <div className="w-16 h-16 bg-shadow rounded-full flex items-center justify-center mx-auto">
+                  <Eye className="h-8 w-8 text-subheader" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">
+                  <h3 className="text-lg font-medium text-header mb-2">
                     Feedback Form Currently Unavailable
                   </h3>
-                  <p className="text-sm text-gray-600">
+                  <p className="text-sm text-body">
                     The feedback form for this business is currently disabled. Please check back later.
                   </p>
                 </div>
@@ -532,30 +645,32 @@ export default function FeedbackPage() {
           </Card>
         )}
 
-        {/* Enhanced Social Links */}
-        <SocialLinksDisplay
-          socialLinks={data.socialLinks}
-          onLinkClick={(platform, url) => {
-            // Track link click
-            fetch(`/api/analytics/${slug}`, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                event_type: "link_click",
-                event_data: { platform },
-              }),
-            }).catch(console.error)
-          }}
-          layout="grid"
-          size="md"
-          showLabels={true}
-        />
+        {/* Social Links - Minimalistic Horizontal Row */}
+        {data.socialLinks && data.socialLinks.length > 0 && (
+          <div className="flex justify-center mb-6">
+            <SocialLinksCompact
+              socialLinks={data.socialLinks}
+              onLinkClick={(platform, url) => {
+                // Track link click
+                fetch(`/api/analytics/${slug}`, {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify({
+                    event_type: "link_click",
+                    event_data: { platform },
+                  }),
+                }).catch(console.error)
+              }}
+              className="bg-white/90 backdrop-blur-sm rounded-full px-4 py-2 shadow-lg"
+            />
+          </div>
+        )}
 
         {/* Footer */}
         <div className="text-center mt-8 text-white/70 text-sm">
-          <p>Powered by KlaroLink</p>
+          <p className="drop-shadow">Powered by KlaroLink</p>
         </div>
       </div>
 
@@ -578,7 +693,7 @@ export default function FeedbackPage() {
               <Button
                 variant="outline"
                 onClick={copyToClipboard}
-                className="flex-1"
+                className="flex-1 border-shadow text-header hover:bg-shadow"
               >
                 <Copy className="h-4 w-4 mr-2" />
                 {copySuccess ? "Copied!" : "Copy Link"}
@@ -590,7 +705,7 @@ export default function FeedbackPage() {
                   link.href = qrCodeUrl
                   link.click()
                 }}
-                className="flex-1"
+                className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90"
               >
                 Download QR
               </Button>
@@ -599,61 +714,102 @@ export default function FeedbackPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Login Dialog */}
+      {/* Enhanced Login Dialog */}
       <Dialog open={showLoginDialog} onOpenChange={setShowLoginDialog}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Login Required</DialogTitle>
-            <DialogDescription>
-              Please login to submit your feedback
+        <DialogContent className="sm:max-w-md bg-white border-shadow">
+          <DialogHeader className="text-center pb-4">
+            <div className="mx-auto w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mb-4">
+              <svg className="w-6 h-6 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+              </svg>
+            </div>
+            <DialogTitle className="text-xl font-semibold text-header">Login Required</DialogTitle>
+            <DialogDescription className="text-subheader">
+              Please sign in to submit your feedback and help us improve our service
             </DialogDescription>
           </DialogHeader>
-          <form onSubmit={handleLogin} className="space-y-4">
+
+          <form onSubmit={handleLogin} className="space-y-5">
             {loginError && (
-              <Alert variant="destructive">
-                <AlertDescription>{loginError}</AlertDescription>
+              <Alert variant="destructive" className="border-error/20 bg-error/5">
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <AlertDescription className="text-error">{loginError}</AlertDescription>
               </Alert>
             )}
-            <div>
-              <Label htmlFor="login-email">Email</Label>
-              <Input
-                id="login-email"
-                type="email"
-                value={loginEmail}
-                onChange={(e) => setLoginEmail(e.target.value)}
-                placeholder="Enter your email"
-                required
-              />
+
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="login-email" className="text-sm font-medium text-header">
+                  Email Address
+                </Label>
+                <Input
+                  id="login-email"
+                  type="email"
+                  value={loginEmail}
+                  onChange={(e) => setLoginEmail(e.target.value)}
+                  placeholder="Enter your email address"
+                  className="mt-1 border-shadow focus:border-primary focus:ring-primary/20"
+                  required
+                  autoComplete="email"
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="login-password" className="text-sm font-medium text-header">
+                  Password
+                </Label>
+                <Input
+                  id="login-password"
+                  type="password"
+                  value={loginPassword}
+                  onChange={(e) => setLoginPassword(e.target.value)}
+                  placeholder="Enter your password"
+                  className="mt-1 border-shadow focus:border-primary focus:ring-primary/20"
+                  required
+                  autoComplete="current-password"
+                />
+              </div>
             </div>
-            <div>
-              <Label htmlFor="login-password">Password</Label>
-              <Input
-                id="login-password"
-                type="password"
-                value={loginPassword}
-                onChange={(e) => setLoginPassword(e.target.value)}
-                placeholder="Enter your password"
-                required
-              />
-            </div>
-            <div className="flex gap-2 pt-4">
+
+            <div className="flex flex-col gap-3 pt-2">
+              <Button
+                type="submit"
+                disabled={isLoggingIn || !loginEmail || !loginPassword}
+                className="w-full bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed h-11 font-medium"
+              >
+                {isLoggingIn ? (
+                  <div className="flex items-center gap-2">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    Signing in...
+                  </div>
+                ) : (
+                  "Sign In & Submit Feedback"
+                )}
+              </Button>
+
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => setShowLoginDialog(false)}
-                className="flex-1"
+                onClick={() => {
+                  setShowLoginDialog(false)
+                  setLoginError("")
+                  setLoginEmail("")
+                  setLoginPassword("")
+                }}
+                className="w-full border-shadow text-subheader hover:bg-shadow hover:text-header h-11"
               >
                 Cancel
               </Button>
-              <Button
-                type="submit"
-                disabled={isLoggingIn}
-                className="flex-1"
-              >
-                {isLoggingIn ? "Logging in..." : "Login & Submit"}
-              </Button>
             </div>
           </form>
+
+          <div className="mt-6 pt-4 border-t border-shadow">
+            <p className="text-xs text-body text-center">
+              Don't have an account? Contact your administrator for access.
+            </p>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

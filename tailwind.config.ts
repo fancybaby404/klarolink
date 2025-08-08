@@ -43,6 +43,39 @@ const config: Config = {
   				DEFAULT: 'hsl(var(--destructive))',
   				foreground: 'hsl(var(--destructive-foreground))'
   			},
+  			/* Status Colors */
+  			success: {
+  				DEFAULT: 'hsl(var(--success))',
+  				foreground: 'hsl(var(--success-foreground))'
+  			},
+  			warning: {
+  				DEFAULT: 'hsl(var(--warning))',
+  				foreground: 'hsl(var(--warning-foreground))'
+  			},
+  			info: {
+  				DEFAULT: 'hsl(var(--info))',
+  				foreground: 'hsl(var(--info-foreground))'
+  			},
+  			error: {
+  				DEFAULT: 'hsl(var(--destructive))',
+  				foreground: 'hsl(var(--destructive-foreground))'
+  			},
+  			/* Typography Colors */
+  			'text-header': 'hsl(var(--text-header))',
+  			'text-subheader': 'hsl(var(--text-subheader))',
+  			'text-tertiary': 'hsl(var(--text-tertiary))',
+  			'text-body': 'hsl(var(--text-body))',
+  			/* Semantic Colors */
+  			header: 'hsl(var(--text-header))',
+  			subheader: 'hsl(var(--text-subheader))',
+  			tertiary: 'hsl(var(--text-tertiary))',
+  			body: 'hsl(var(--text-body))',
+  			/* Table Colors */
+  			'table-header': 'hsl(var(--table-header))',
+  			'table-secondary': 'hsl(var(--table-secondary))',
+  			'table-default': 'hsl(var(--table-default))',
+  			'bar-color': 'hsl(var(--bar-color))',
+  			shadow: 'hsl(var(--accent))',
   			border: 'hsl(var(--border))',
   			input: 'hsl(var(--input))',
   			ring: 'hsl(var(--ring))',

@@ -1,5 +1,5 @@
 // Database abstraction layer for v0 compatibility
-import type { Business, FeedbackForm, SocialLink, FeedbackSubmission, AnalyticsEvent, FormField } from "./types"
+import type { Business, FeedbackForm, SocialLink, FeedbackSubmission, AnalyticsEvent, FormField, CustomerProfile, CustomerSegment, User, UserBusinessAccess } from "./types"
 import { Pool } from 'pg'
 
 const pool = new Pool({
@@ -19,8 +19,13 @@ const mockBusinesses: Business[] = [
     password_hash: "$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewdBPj/RK.PqhEIu",
     profile_image: "/placeholder.svg?height=100&width=100",
     slug: "demo-business",
+    location: "San Francisco, CA",
     background_type: "color",
     background_value: "#6366f1",
+    submit_button_color: "#CC79F0",
+    submit_button_text_color: "#FDFFFA",
+    submit_button_hover_color: "#3E7EF7",
+    preview_enabled: true,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   },
@@ -31,10 +36,75 @@ const mockBusinesses: Business[] = [
     password_hash: "$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewdBPj/RK.PqhEIu",
     profile_image: "/placeholder.svg?height=100&width=100",
     slug: "acme-restaurant",
+    location: "New York, NY",
     background_type: "color",
     background_value: "#dc2626",
+    submit_button_color: "#CC79F0",
+    submit_button_text_color: "#FDFFFA",
+    submit_button_hover_color: "#3E7EF7",
+    preview_enabled: true,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
+  },
+]
+
+const mockUsers: User[] = [
+  {
+    id: 1,
+    email: "admin@klarolink.com",
+    password_hash: "$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewdBPj/VcSforHgK",
+    first_name: "Admin",
+    last_name: "User",
+    is_active: true,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  {
+    id: 2,
+    email: "demo@klarolink.com",
+    password_hash: "$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewdBPj/VcSforHgK",
+    first_name: "Demo",
+    last_name: "User",
+    is_active: true,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  {
+    id: 3,
+    email: "john@example.com",
+    password_hash: "$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewdBPj/VcSforHgK",
+    first_name: "John",
+    last_name: "Smith",
+    is_active: true,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  {
+    id: 4,
+    email: "sarah@example.com",
+    password_hash: "$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewdBPj/VcSforHgK",
+    first_name: "Sarah",
+    last_name: "Johnson",
+    is_active: true,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+]
+
+const mockUserBusinessAccess: UserBusinessAccess[] = [
+  {
+    id: 1,
+    user_id: 1,
+    business_id: 1,
+    role: "admin",
+    granted_at: new Date().toISOString(),
+  },
+  {
+    id: 2,
+    user_id: 2,
+    business_id: 2,
+    role: "admin",
+    granted_at: new Date().toISOString(),
   },
 ]
 
@@ -74,7 +144,7 @@ const mockFeedbackForms: FeedbackForm[] = [
       },
     ],
     is_active: true,
-    preview_enabled: false,
+    preview_enabled: true,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   },
@@ -175,6 +245,90 @@ const mockAnalyticsEvents: AnalyticsEvent[] = [
   },
 ]
 
+const mockCustomerProfiles: CustomerProfile[] = [
+  {
+    id: 1,
+    business_id: 1,
+    email: "john.doe@example.com",
+    name: "John Doe",
+    total_submissions: 3,
+    average_rating: 4.7,
+    engagement_score: 85,
+    first_submission_at: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
+    last_submission_at: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+    segments: ["promoters", "frequent_customers"],
+    custom_fields: { company: "Tech Corp", industry: "Technology" },
+    created_at: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
+  },
+  {
+    id: 2,
+    business_id: 1,
+    email: "sarah.smith@example.com",
+    name: "Sarah Smith",
+    total_submissions: 1,
+    average_rating: 2.0,
+    engagement_score: 25,
+    first_submission_at: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
+    last_submission_at: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
+    segments: ["detractors", "at_risk"],
+    custom_fields: { company: "Small Business Inc", industry: "Retail" },
+    created_at: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
+  },
+  {
+    id: 3,
+    business_id: 1,
+    email: "mike.johnson@example.com",
+    name: "Mike Johnson",
+    total_submissions: 2,
+    average_rating: 3.5,
+    engagement_score: 60,
+    first_submission_at: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString(),
+    last_submission_at: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+    segments: ["passives", "returning_customers"],
+    custom_fields: { company: "Mid Corp", industry: "Manufacturing" },
+    created_at: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString(),
+  },
+]
+
+const mockCustomerSegments: CustomerSegment[] = [
+  {
+    id: 1,
+    business_id: 1,
+    name: "Promoters",
+    description: "Customers with ratings 4-5 stars",
+    rules: { rating_min: 4, rating_max: 5 },
+    customer_count: 1,
+    created_at: new Date().toISOString(),
+  },
+  {
+    id: 2,
+    business_id: 1,
+    name: "Detractors",
+    description: "Customers with ratings 1-2 stars",
+    rules: { rating_min: 1, rating_max: 2 },
+    customer_count: 1,
+    created_at: new Date().toISOString(),
+  },
+  {
+    id: 3,
+    business_id: 1,
+    name: "Passives",
+    description: "Customers with rating 3 stars",
+    rules: { rating_min: 3, rating_max: 3 },
+    customer_count: 1,
+    created_at: new Date().toISOString(),
+  },
+  {
+    id: 4,
+    business_id: 1,
+    name: "At Risk",
+    description: "Customers with declining satisfaction",
+    rules: { engagement_score_max: 30 },
+    customer_count: 1,
+    created_at: new Date().toISOString(),
+  },
+]
+
 // Database adapter interface
 export interface DatabaseAdapter {
   // Business operations
@@ -204,6 +358,24 @@ export interface DatabaseAdapter {
     averageRating: number
     pageViews: number
   }>
+  getDetailedInsights(businessId: number): Promise<{
+    submissionTrends: Array<{ date: string; count: number }>
+    fieldAnalytics: Array<{ fieldId: string; fieldLabel: string; fieldType: string; responses: any[] }>
+    ratingDistribution: Array<{ rating: number; count: number }>
+    recentSubmissions: FeedbackSubmission[]
+  }>
+
+  // Customer profiles and audience management
+  getCustomerProfiles(businessId: number): Promise<CustomerProfile[]>
+  getCustomerProfile(businessId: number, email: string): Promise<CustomerProfile | null>
+  createOrUpdateCustomerProfile(businessId: number, email: string, data: Partial<CustomerProfile>): Promise<CustomerProfile>
+  getCustomerSegments(businessId: number): Promise<CustomerSegment[]>
+
+  // User authentication operations
+  getUser(id: number): Promise<User | null>
+  getUserByEmail(email: string): Promise<User | null>
+  getUserBusinessAccess(userId: number): Promise<Business[]>
+  validateUserBusinessAccess(userId: number, businessId: number): Promise<boolean>
 }
 
 // Mock database adapter for v0 preview environment
@@ -213,6 +385,8 @@ class MockDatabaseAdapter implements DatabaseAdapter {
   private socialLinks = [...mockSocialLinks]
   private feedbackSubmissions = [...mockFeedbackSubmissions]
   private analyticsEvents = [...mockAnalyticsEvents]
+  private users = [...mockUsers]
+  private userBusinessAccess = [...mockUserBusinessAccess]
 
   async getBusiness(id: number): Promise<Business | null> {
     return this.businesses.find((b) => b.id === id) || null
@@ -311,6 +485,13 @@ class MockDatabaseAdapter implements DatabaseAdapter {
       submitted_at: new Date().toISOString(),
     }
     this.feedbackSubmissions.push(newSubmission)
+    // Invalidate AI insights cache file for this business so fresh analysis runs next time
+    try {
+      const { promises: fs } = await import('fs')
+      const path = (await import('path')).default
+      const file = path.join(process.cwd(), '.cache', 'ai-insights', `business_${data.business_id}.json`)
+      await fs.unlink(file).catch(() => {})
+    } catch {}
     return newSubmission
   }
 
@@ -354,6 +535,123 @@ class MockDatabaseAdapter implements DatabaseAdapter {
       averageRating: Math.round(averageRating * 10) / 10,
       pageViews,
     }
+  }
+
+  async getDetailedInsights(businessId: number): Promise<{
+    submissionTrends: Array<{ date: string; count: number }>
+    fieldAnalytics: Array<{ fieldId: string; fieldLabel: string; fieldType: string; responses: any[] }>
+    ratingDistribution: Array<{ rating: number; count: number }>
+    recentSubmissions: FeedbackSubmission[]
+  }> {
+    const feedback = this.feedbackSubmissions.filter((s) => s.business_id === businessId)
+
+    // Generate submission trends (last 7 days)
+    const submissionTrends = []
+    for (let i = 6; i >= 0; i--) {
+      const date = new Date()
+      date.setDate(date.getDate() - i)
+      const dateStr = date.toISOString().split('T')[0]
+      const count = feedback.filter(f => f.submitted_at.startsWith(dateStr)).length
+      submissionTrends.push({ date: dateStr, count })
+    }
+
+    // Analyze field responses
+    const fieldAnalytics: Array<{ fieldId: string; fieldLabel: string; fieldType: string; responses: any[] }> = []
+    if (feedback.length > 0) {
+      const sampleSubmission = feedback[0].submission_data
+      Object.keys(sampleSubmission).forEach(fieldId => {
+        const responses = feedback.map(f => f.submission_data[fieldId]).filter(r => r !== undefined)
+        fieldAnalytics.push({
+          fieldId,
+          fieldLabel: fieldId.charAt(0).toUpperCase() + fieldId.slice(1),
+          fieldType: typeof responses[0] === 'number' ? 'rating' : 'text',
+          responses
+        })
+      })
+    }
+
+    // Rating distribution
+    const ratings = feedback.map(f => f.submission_data.rating).filter(r => typeof r === 'number')
+    const ratingDistribution = [1, 2, 3, 4, 5].map(rating => ({
+      rating,
+      count: ratings.filter(r => r === rating).length
+    }))
+
+    return {
+      submissionTrends,
+      fieldAnalytics,
+      ratingDistribution,
+      recentSubmissions: feedback.slice(0, 10)
+    }
+  }
+
+  async getCustomerProfiles(businessId: number): Promise<CustomerProfile[]> {
+    return mockCustomerProfiles.filter(profile => profile.business_id === businessId)
+  }
+
+  async getCustomerProfile(businessId: number, email: string): Promise<CustomerProfile | null> {
+    return mockCustomerProfiles.find(profile =>
+      profile.business_id === businessId && profile.email === email
+    ) || null
+  }
+
+  async createOrUpdateCustomerProfile(businessId: number, email: string, data: Partial<CustomerProfile>): Promise<CustomerProfile> {
+    const existingIndex = mockCustomerProfiles.findIndex(profile =>
+      profile.business_id === businessId && profile.email === email
+    )
+
+    if (existingIndex >= 0) {
+      // Update existing profile
+      mockCustomerProfiles[existingIndex] = {
+        ...mockCustomerProfiles[existingIndex],
+        ...data,
+        email, // Ensure email doesn't change
+        business_id: businessId // Ensure business_id doesn't change
+      }
+      return mockCustomerProfiles[existingIndex]
+    } else {
+      // Create new profile
+      const newProfile: CustomerProfile = {
+        id: Math.max(...mockCustomerProfiles.map(p => p.id), 0) + 1,
+        business_id: businessId,
+        email,
+        name: data.name || '',
+        total_submissions: data.total_submissions || 0,
+        average_rating: data.average_rating || 0,
+        engagement_score: data.engagement_score || 0,
+        first_submission_at: data.first_submission_at,
+        last_submission_at: data.last_submission_at,
+        segments: data.segments || [],
+        custom_fields: data.custom_fields || {},
+        created_at: new Date().toISOString(),
+        ...data
+      }
+      mockCustomerProfiles.push(newProfile)
+      return newProfile
+    }
+  }
+
+  async getCustomerSegments(businessId: number): Promise<CustomerSegment[]> {
+    return mockCustomerSegments.filter(segment => segment.business_id === businessId)
+  }
+
+  // User authentication methods
+  async getUser(id: number): Promise<User | null> {
+    return this.users.find((u) => u.id === id) || null
+  }
+
+  async getUserByEmail(email: string): Promise<User | null> {
+    return this.users.find((u) => u.email === email) || null
+  }
+
+  async getUserBusinessAccess(userId: number): Promise<Business[]> {
+    const accessRecords = this.userBusinessAccess.filter(uba => uba.user_id === userId)
+    const businessIds = accessRecords.map(uba => uba.business_id)
+    return this.businesses.filter(b => businessIds.includes(b.id))
+  }
+
+  async validateUserBusinessAccess(userId: number, businessId: number): Promise<boolean> {
+    return this.userBusinessAccess.some(uba => uba.user_id === userId && uba.business_id === businessId)
   }
 }
 
@@ -432,14 +730,15 @@ class NeonDatabaseAdapter implements DatabaseAdapter {
   async createBusiness(data: Omit<Business, "id" | "created_at" | "updated_at">): Promise<Business> {
     try {
       const result = await this.query(
-        `INSERT INTO businesses (name, email, password_hash, profile_image, slug, background_type, background_value)
-         VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+        `INSERT INTO businesses (name, email, password_hash, profile_image, slug, location, background_type, background_value)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
         [
           data.name,
           data.email,
           data.password_hash,
           data.profile_image,
           data.slug,
+          data.location,
           data.background_type,
           data.background_value,
         ],
@@ -489,6 +788,12 @@ class NeonDatabaseAdapter implements DatabaseAdapter {
       if (data.slug !== undefined) {
         updateFields.push(`slug = $${paramIndex}`);
         values.push(data.slug);
+        paramIndex++;
+      }
+
+      if (data.location !== undefined) {
+        updateFields.push(`location = $${paramIndex}`);
+        values.push(data.location);
         paramIndex++;
       }
 
@@ -627,14 +932,33 @@ class NeonDatabaseAdapter implements DatabaseAdapter {
 
   async createFeedbackSubmission(data: Omit<FeedbackSubmission, "id" | "submitted_at">): Promise<FeedbackSubmission> {
     try {
+      console.log("📝 Creating feedback submission:", {
+        business_id: data.business_id,
+        form_id: data.form_id,
+        submission_data: data.submission_data,
+        ip_address: data.ip_address
+      })
+
       const result = await this.query(
         `INSERT INTO feedback_submissions (business_id, form_id, submission_data, ip_address, user_agent)
          VALUES ($1, $2, $3, $4, $5) RETURNING *`,
         [data.business_id, data.form_id, JSON.stringify(data.submission_data), data.ip_address, data.user_agent],
       )
+
+      console.log("✅ Feedback submission created successfully:", result[0])
+
+      // Invalidate AI insights cache file for this business so fresh analysis runs next time
+      try {
+        const { promises: fs } = await import('fs')
+        const path = (await import('path')).default
+        const file = path.join(process.cwd(), '.cache', 'ai-insights', `business_${data.business_id}.json`)
+        await fs.unlink(file).catch(() => {})
+      } catch {}
+
       return result[0]
     } catch (error) {
-      console.error("Database error:", error)
+      console.error("❌ Database error in createFeedbackSubmission:", error)
+      console.log("🔄 Falling back to mock database adapter")
       return mockDatabaseAdapter.createFeedbackSubmission(data)
     }
   }
@@ -672,33 +996,249 @@ class NeonDatabaseAdapter implements DatabaseAdapter {
     pageViews: number
   }> {
     try {
-      const [feedbackResult, analyticsResult] = await Promise.all([
-        this.query(
-          "SELECT COUNT(*) as count, AVG(rating) as avg_rating FROM feedback_submissions WHERE business_id = $1",
-          [businessId],
-        ),
-        this.query(
-          "SELECT event_type, COUNT(*) as count FROM analytics_events WHERE business_id = $1 GROUP BY event_type",
-          [businessId],
-        ),
-      ])
+      console.log(`📊 Getting analytics stats for business ID: ${businessId}`)
 
-      const totalFeedback = feedbackResult[0]?.count || 0
-      const averageRating = feedbackResult[0]?.avg_rating || 0
+      // Get feedback submissions with actual data to extract ratings properly
+      const feedbackSubmissions = await this.query(
+        "SELECT submission_data FROM feedback_submissions WHERE business_id = $1",
+        [businessId],
+      )
+
+      const analyticsResult = await this.query(
+        "SELECT event_type, COUNT(*) as count FROM analytics_events WHERE business_id = $1 GROUP BY event_type",
+        [businessId],
+      )
+
+      const totalFeedback = feedbackSubmissions.length
+
+      // Extract ratings from submission_data JSON
+      const ratings = feedbackSubmissions
+        .map((s: any) => {
+          try {
+            const data = typeof s.submission_data === 'string' ? JSON.parse(s.submission_data) : s.submission_data
+            return data?.rating
+          } catch {
+            return null
+          }
+        })
+        .filter((r: any): r is number => typeof r === "number" && r >= 1 && r <= 5)
+
+      const averageRating = ratings.length > 0 ? ratings.reduce((a, b) => a + b, 0) / ratings.length : 0
       const pageViews = analyticsResult.find((r: any) => r.event_type === "page_view")?.count || 0
       const formSubmits = analyticsResult.find((r: any) => r.event_type === "form_submit")?.count || 0
 
       const completionRate = pageViews > 0 ? (formSubmits / pageViews) * 100 : 0
 
-      return {
+      const stats = {
         totalFeedback,
         completionRate: Math.round(completionRate),
         averageRating: Math.round(averageRating * 10) / 10,
         pageViews,
       }
+
+      console.log(`✅ Analytics stats calculated:`, stats)
+      return stats
     } catch (error) {
-      console.error("Database error:", error)
+      console.error("❌ Database error in getAnalyticsStats:", error)
+      console.log("🔄 Falling back to mock database adapter")
       return mockDatabaseAdapter.getAnalyticsStats(businessId)
+    }
+  }
+
+  async getDetailedInsights(businessId: number): Promise<{
+    submissionTrends: Array<{ date: string; count: number }>
+    fieldAnalytics: Array<{ fieldId: string; fieldLabel: string; fieldType: string; responses: any[] }>
+    ratingDistribution: Array<{ rating: number; count: number }>
+    recentSubmissions: FeedbackSubmission[]
+  }> {
+    try {
+      console.log(`📊 Getting detailed insights for business ID: ${businessId}`)
+
+      // Get submission trends (last 7 days)
+      const trendsResult = await this.query(`
+        SELECT DATE(submitted_at) as date, COUNT(*) as count
+        FROM feedback_submissions
+        WHERE business_id = $1 AND submitted_at >= NOW() - INTERVAL '7 days'
+        GROUP BY DATE(submitted_at)
+        ORDER BY date
+      `, [businessId])
+
+      // Get all submissions for field analysis
+      const submissionsResult = await this.query(
+        "SELECT submission_data, submitted_at FROM feedback_submissions WHERE business_id = $1 ORDER BY submitted_at DESC",
+        [businessId]
+      )
+
+      // Generate submission trends for last 7 days (fill missing days with 0)
+      const submissionTrends = []
+      for (let i = 6; i >= 0; i--) {
+        const date = new Date()
+        date.setDate(date.getDate() - i)
+        const dateStr = date.toISOString().split('T')[0]
+        const existing = trendsResult.find((t: any) => t.date === dateStr)
+        submissionTrends.push({ date: dateStr, count: existing?.count || 0 })
+      }
+
+      // Analyze field responses
+      const fieldAnalytics: Array<{ fieldId: string; fieldLabel: string; fieldType: string; responses: any[] }> = []
+      if (submissionsResult.length > 0) {
+        const allFields = new Set<string>()
+        submissionsResult.forEach((s: any) => {
+          try {
+            const data = typeof s.submission_data === 'string' ? JSON.parse(s.submission_data) : s.submission_data
+            Object.keys(data).forEach(key => allFields.add(key))
+          } catch (e) {
+            console.warn("Failed to parse submission data:", e)
+          }
+        })
+
+        allFields.forEach(fieldId => {
+          const responses = submissionsResult.map((s: any) => {
+            try {
+              const data = typeof s.submission_data === 'string' ? JSON.parse(s.submission_data) : s.submission_data
+              return data[fieldId]
+            } catch {
+              return null
+            }
+          }).filter(r => r !== null && r !== undefined)
+
+          if (responses.length > 0) {
+            fieldAnalytics.push({
+              fieldId,
+              fieldLabel: fieldId.charAt(0).toUpperCase() + fieldId.slice(1).replace(/([A-Z])/g, ' $1'),
+              fieldType: typeof responses[0] === 'number' ? 'rating' : 'text',
+              responses
+            })
+          }
+        })
+      }
+
+      // Rating distribution
+      const ratings = submissionsResult
+        .map((s: any) => {
+          try {
+            const data = typeof s.submission_data === 'string' ? JSON.parse(s.submission_data) : s.submission_data
+            return data?.rating
+          } catch {
+            return null
+          }
+        })
+        .filter((r: any): r is number => typeof r === "number" && r >= 1 && r <= 5)
+
+      const ratingDistribution = [1, 2, 3, 4, 5].map(rating => ({
+        rating,
+        count: ratings.filter(r => r === rating).length
+      }))
+
+      const insights = {
+        submissionTrends,
+        fieldAnalytics,
+        ratingDistribution,
+        recentSubmissions: submissionsResult.slice(0, 10)
+      }
+
+      console.log(`✅ Detailed insights calculated for ${submissionsResult.length} submissions`)
+      return insights
+    } catch (error) {
+      console.error("❌ Database error in getDetailedInsights:", error)
+      console.log("🔄 Falling back to mock database adapter")
+      return mockDatabaseAdapter.getDetailedInsights(businessId)
+    }
+  }
+
+  async getCustomerProfiles(businessId: number): Promise<CustomerProfile[]> {
+    try {
+      console.log(`👥 Getting customer profiles for business ID: ${businessId}`)
+      // For now, fall back to mock data since we haven't created the customer_profiles table yet
+      return mockDatabaseAdapter.getCustomerProfiles(businessId)
+    } catch (error) {
+      console.error("❌ Database error in getCustomerProfiles:", error)
+      return mockDatabaseAdapter.getCustomerProfiles(businessId)
+    }
+  }
+
+  async getCustomerProfile(businessId: number, email: string): Promise<CustomerProfile | null> {
+    try {
+      console.log(`👤 Getting customer profile for ${email} in business ${businessId}`)
+      // For now, fall back to mock data since we haven't created the customer_profiles table yet
+      return mockDatabaseAdapter.getCustomerProfile(businessId, email)
+    } catch (error) {
+      console.error("❌ Database error in getCustomerProfile:", error)
+      return mockDatabaseAdapter.getCustomerProfile(businessId, email)
+    }
+  }
+
+  async createOrUpdateCustomerProfile(businessId: number, email: string, data: Partial<CustomerProfile>): Promise<CustomerProfile> {
+    try {
+      console.log(`💾 Creating/updating customer profile for ${email} in business ${businessId}`)
+      // For now, fall back to mock data since we haven't created the customer_profiles table yet
+      return mockDatabaseAdapter.createOrUpdateCustomerProfile(businessId, email, data)
+    } catch (error) {
+      console.error("❌ Database error in createOrUpdateCustomerProfile:", error)
+      return mockDatabaseAdapter.createOrUpdateCustomerProfile(businessId, email, data)
+    }
+  }
+
+  async getCustomerSegments(businessId: number): Promise<CustomerSegment[]> {
+    try {
+      console.log(`📊 Getting customer segments for business ID: ${businessId}`)
+      // For now, fall back to mock data since we haven't created the customer_segments table yet
+      return mockDatabaseAdapter.getCustomerSegments(businessId)
+    } catch (error) {
+      console.error("❌ Database error in getCustomerSegments:", error)
+      return mockDatabaseAdapter.getCustomerSegments(businessId)
+    }
+  }
+
+  // User authentication methods
+  async getUser(id: number): Promise<User | null> {
+    try {
+      console.log(`👤 Getting user by ID: ${id}`)
+      const result = await this.query("SELECT * FROM users WHERE id = $1 AND is_active = TRUE", [id])
+      return result[0] || null
+    } catch (error) {
+      console.error("❌ Database error in getUser:", error)
+      return mockDatabaseAdapter.getUser(id)
+    }
+  }
+
+  async getUserByEmail(email: string): Promise<User | null> {
+    try {
+      console.log(`👤 Getting user by email: ${email}`)
+      const result = await this.query("SELECT * FROM users WHERE email = $1 AND is_active = TRUE", [email])
+      return result[0] || null
+    } catch (error) {
+      console.error("❌ Database error in getUserByEmail:", error)
+      return mockDatabaseAdapter.getUserByEmail(email)
+    }
+  }
+
+  async getUserBusinessAccess(userId: number): Promise<Business[]> {
+    try {
+      console.log(`🏢 Getting business access for user ID: ${userId}`)
+      const result = await this.query(`
+        SELECT b.* FROM businesses b
+        JOIN user_business_access uba ON b.id = uba.business_id
+        WHERE uba.user_id = $1
+      `, [userId])
+      return result
+    } catch (error) {
+      console.error("❌ Database error in getUserBusinessAccess:", error)
+      return mockDatabaseAdapter.getUserBusinessAccess(userId)
+    }
+  }
+
+  async validateUserBusinessAccess(userId: number, businessId: number): Promise<boolean> {
+    try {
+      console.log(`🔐 Validating user ${userId} access to business ${businessId}`)
+      const result = await this.query(`
+        SELECT 1 FROM user_business_access
+        WHERE user_id = $1 AND business_id = $2
+      `, [userId, businessId])
+      return result.length > 0
+    } catch (error) {
+      console.error("❌ Database error in validateUserBusinessAccess:", error)
+      return mockDatabaseAdapter.validateUserBusinessAccess(userId, businessId)
     }
   }
 }
@@ -711,4 +1251,4 @@ const neonDatabaseAdapter = new NeonDatabaseAdapter()
 export const db: DatabaseAdapter = process.env.DATABASE_URL ? neonDatabaseAdapter : mockDatabaseAdapter
 
 // Export mock data for testing
-export { mockBusinesses, mockFeedbackForms, mockSocialLinks, mockFeedbackSubmissions }
+export { mockBusinesses, mockFeedbackForms, mockSocialLinks, mockFeedbackSubmissions, mockCustomerProfiles, mockCustomerSegments }

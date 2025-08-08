@@ -167,11 +167,11 @@ export function SocialLinksCompact({
   }
 
   return (
-    <div className={`flex items-center gap-2 ${className}`}>
+    <div className={`flex items-center gap-3 ${className}`}>
       {activeSocialLinks.map((link) => {
         const platform = SOCIAL_PLATFORMS[link.platform]
         const Icon = platform?.icon
-        
+
         if (!Icon || !platform) {
           return null
         }
@@ -181,12 +181,12 @@ export function SocialLinksCompact({
             key={link.id}
             variant="ghost"
             size="sm"
-            className="h-8 w-8 p-0 hover:bg-gray-100 rounded-full"
+            className="h-10 w-10 p-0 hover:bg-white/80 rounded-full transition-all duration-200 hover:scale-110 hover:shadow-md group"
             onClick={() => handleLinkClick(link)}
             title={`Visit our ${platform.name}`}
           >
-            <Icon 
-              className="h-4 w-4" 
+            <Icon
+              className="h-5 w-5 transition-transform duration-200 group-hover:scale-110"
               style={{ color: platform.color }}
             />
           </Button>

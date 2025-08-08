@@ -1,4 +1,15 @@
 // Shared type definitions for the application
+export interface User {
+  id: number
+  email: string
+  password_hash: string
+  first_name?: string
+  last_name?: string
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
 export interface Business {
   id: number
   name: string
@@ -6,10 +17,23 @@ export interface Business {
   password_hash: string
   profile_image?: string
   slug: string
+  location?: string
   background_type: "color" | "image"
   background_value: string
+  submit_button_color?: string
+  submit_button_text_color?: string
+  submit_button_hover_color?: string
+  preview_enabled?: boolean
   created_at: string
   updated_at: string
+}
+
+export interface UserBusinessAccess {
+  id: number
+  user_id: number
+  business_id: number
+  role: string
+  granted_at: string
 }
 
 export interface FeedbackForm {
@@ -57,6 +81,7 @@ export interface FeedbackSubmission {
   id: number
   business_id: number
   form_id: number
+  user_id?: number
   submission_data: Record<string, any>
   submitted_at: string
   ip_address?: string
@@ -108,4 +133,29 @@ export interface AnalyticsEvent {
   session_id?: string
   page_url?: string
   referrer?: string
+}
+
+export interface CustomerProfile {
+  id: number
+  business_id: number
+  email: string
+  name?: string
+  total_submissions: number
+  average_rating: number
+  engagement_score: number
+  first_submission_at?: string
+  last_submission_at?: string
+  segments: string[]
+  custom_fields: Record<string, any>
+  created_at: string
+}
+
+export interface CustomerSegment {
+  id: number
+  business_id: number
+  name: string
+  description?: string
+  rules: Record<string, any>
+  customer_count: number
+  created_at: string
 }

@@ -33,6 +33,8 @@ import {
   Users,
   User,
   TrendingUp,
+  TrendingDown,
+  AlertTriangle,
   FileText,
   BarChart,
   UserCheck,
@@ -45,12 +47,17 @@ import {
   X,
   Settings,
   Eye,
-  GripVertical
+  GripVertical,
+  Search,
+  Mail,
+  Minus,
+  LogOut
 } from "lucide-react"
 import Link from "next/link"
 import { SocialLinksManager } from "@/components/social-links-manager"
 import { BusinessProfileManager } from "@/components/business-profile-manager"
 import { LoadingSpinner, LoadingState } from "@/components/loading-spinner"
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import type { Business } from "@/lib/database"
 import type { FormField, SocialLink, FeedbackForm } from "@/lib/types"
 
@@ -107,6 +114,97 @@ const recentFeedbackData = [
 ]
 
 function InsightsTab({ data }: { data: DashboardData }) {
+  const [insights, setInsights] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
+  const [ai, setAi] = useState<any>(null)
+  const [aiLoading, setAiLoading] = useState(false)
+  const [aiError, setAiError] = useState<string | null>(null)
+  const [issuesData, setIssuesData] = useState<any>(null)
+  const [issuesLoading, setIssuesLoading] = useState(true)
+
+  useEffect(() => {
+    fetchInsights()
+    fetchIssues()
+  }, [])
+
+  // Fetch AI insights when the user scrolls near the bottom (minor UX tweak to reduce initial load)
+  useEffect(() => { fetchAiInsights(); }, [])
+
+  const fetchAiInsights = async (force = false) => {
+    try {
+      setAiLoading(true)
+      setAiError(null)
+      const token = localStorage.getItem("token")
+      if (!token) return
+      const resp = await fetch(`/api/ai-insights${force ? '?force=true' : ''}` , {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (!resp.ok) throw new Error(`AI insights error ${resp.status}`)
+      const result = await resp.json()
+      setAi(result)
+    } catch (e: any) {
+      console.error(e)
+      setAiError(e.message || 'Failed to load AI insights')
+    } finally {
+      setAiLoading(false)
+    }
+  }
+
+  const fetchInsights = async () => {
+    try {
+      const token = localStorage.getItem("token")
+      if (!token) return
+
+      const response = await fetch("/api/insights", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+
+      if (response.ok) {
+        const result = await response.json()
+        setInsights(result.insights)
+      }
+    } catch (error) {
+      console.error("Failed to fetch insights:", error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const fetchIssues = async () => {
+    try {
+      const token = localStorage.getItem("token")
+      if (!token) return
+
+      const response = await fetch("/api/dashboard/issues", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+
+      if (response.ok) {
+        const result = await response.json()
+        setIssuesData(result)
+      }
+    } catch (error) {
+      console.error("Failed to fetch issues:", error)
+    } finally {
+      setIssuesLoading(false)
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading insights...</p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -116,44 +214,56 @@ function InsightsTab({ data }: { data: DashboardData }) {
           <p className="text-gray-600">Analytics and insights from your customer feedback</p>
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-sm text-gray-500">Last 30 Days</span>
-          <Button variant="outline" size="sm">
-            <span>📅</span>
+          <span className="text-sm text-gray-500">Last 7 Days</span>
+          <Button variant="outline" size="sm" onClick={() => { fetchInsights(); fetchAiInsights(true); }}>
+            <span>🔄 Refresh</span>
           </Button>
         </div>
       </div>
 
-      {/* Satisfaction Over Time Chart */}
+      {/* Submission Trends Chart */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <TrendingUp className="h-5 w-5 text-blue-600" />
-            Satisfaction Over Time
+            Feedback Submission Trends
           </CardTitle>
+          <CardDescription>Daily submissions over the last 7 days</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Line Chart */}
             <div className="lg:col-span-2">
               <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={satisfactionData}>
+                <LineChart data={insights?.submissionTrends || []}>
                   <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="month" />
+                  <XAxis
+                    dataKey="date"
+                    tickFormatter={(value) => new Date(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                  />
                   <YAxis />
-                  <Tooltip />
-                  <Line type="monotone" dataKey="satisfied" stroke="#22c55e" strokeWidth={3} />
-                  <Line type="monotone" dataKey="neutral" stroke="#eab308" strokeWidth={2} />
-                  <Line type="monotone" dataKey="unsatisfied" stroke="#ef4444" strokeWidth={2} />
+                  <Tooltip
+                    labelFormatter={(value) => new Date(value).toLocaleDateString('en-US', {
+                      weekday: 'long',
+                      month: 'short',
+                      day: 'numeric'
+                    })}
+                  />
+                  <Line type="monotone" dataKey="count" stroke="#2563eb" strokeWidth={3} />
                 </LineChart>
               </ResponsiveContainer>
             </div>
 
-            {/* Pie Chart */}
+            {/* Rating Distribution Chart */}
             <div className="flex flex-col items-center justify-center">
               <ResponsiveContainer width="100%" height={200}>
                 <PieChart>
                   <Pie
-                    data={pieData}
+                    data={insights?.ratingDistribution?.filter((item: any) => item.count > 0).map((item: any) => ({
+                      name: `${item.rating} Star${item.rating !== 1 ? 's' : ''}`,
+                      value: item.count,
+                      rating: item.rating
+                    })) || []}
                     cx="50%"
                     cy="50%"
                     innerRadius={40}
@@ -161,24 +271,30 @@ function InsightsTab({ data }: { data: DashboardData }) {
                     paddingAngle={5}
                     dataKey="value"
                   >
-                    {pieData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    {insights?.ratingDistribution?.filter((item: any) => item.count > 0).map((entry: any, index: number) => (
+                      <Cell
+                        key={`cell-${index}`}
+                        fill={entry.rating >= 4 ? '#22c55e' : entry.rating >= 3 ? '#eab308' : '#ef4444'}
+                      />
                     ))}
                   </Pie>
                   <Tooltip />
                 </PieChart>
               </ResponsiveContainer>
               <div className="text-center mt-4">
-                <div className="text-3xl font-bold">100</div>
-                <div className="text-sm text-gray-500">Customers</div>
+                <div className="text-3xl font-bold">{data.stats.totalFeedback}</div>
+                <div className="text-sm text-gray-500">Total Ratings</div>
               </div>
 
               {/* Legend */}
               <div className="flex flex-col gap-2 mt-4">
-                {pieData.map((item, index) => (
+                {insights?.ratingDistribution?.filter((item: any) => item.count > 0).map((item: any, index: number) => (
                   <div key={index} className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }}></div>
-                    <span className="text-sm">{item.name}</span>
+                    <div
+                      className="w-3 h-3 rounded-full"
+                      style={{ backgroundColor: item.rating >= 4 ? '#22c55e' : item.rating >= 3 ? '#eab308' : '#ef4444' }}
+                    ></div>
+                    <span className="text-sm">{item.rating} Star{item.rating !== 1 ? 's' : ''} ({item.count})</span>
                   </div>
                 ))}
               </div>
@@ -187,6 +303,95 @@ function InsightsTab({ data }: { data: DashboardData }) {
         </CardContent>
       </Card>
 
+
+
+      {/* Conclusions - moved to end of insights page */}
+      {ai?.insights?.conclusion && (
+        <Card className="mt-6 border-gray-200">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <span>💡</span>
+              Conclusions
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              <div className="flex items-start gap-3">
+                <span className="text-xl">👍</span>
+                <p><span className="font-semibold">Strength:</span> {ai.insights.conclusion.strength}</p>
+              </div>
+              <div className="flex items-start gap-3">
+                <span className="text-xl">⚠️</span>
+                <p><span className="font-semibold">Needs Improvement:</span> {ai.insights.conclusion.needsImprovement}</p>
+              </div>
+              <div className="flex items-start gap-3">
+                <span className="text-xl">🎯</span>
+                <p><span className="font-semibold">Action:</span> {ai.insights.conclusion.action}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Dynamic Field Analytics */}
+      {insights?.fieldAnalytics && insights.fieldAnalytics.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <BarChart3 className="h-5 w-5 text-purple-600" />
+              Form Field Analytics
+            </CardTitle>
+            <CardDescription>Insights from your custom form fields</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {insights.fieldAnalytics.map((field: any, index: number) => (
+                <div key={field.fieldId} className="p-4 border rounded-lg">
+                  <h4 className="font-semibold text-gray-900 mb-2">{field.fieldLabel}</h4>
+                  <p className="text-sm text-gray-500 mb-3">Type: {field.fieldType}</p>
+
+                  {field.fieldType === 'rating' && (
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium">Average: {
+                        field.responses.length > 0
+                          ? (field.responses.reduce((a: number, b: number) => a + b, 0) / field.responses.length).toFixed(1)
+                          : 'N/A'
+                      }</p>
+                      <div className="flex gap-1">
+                        {[1, 2, 3, 4, 5].map(rating => (
+                          <div key={rating} className="text-center">
+                            <div className="text-xs text-gray-500">{rating}</div>
+                            <div
+                              className="w-4 bg-blue-200 rounded"
+                              style={{
+                                height: `${Math.max(4, (field.responses.filter((r: number) => r === rating).length / field.responses.length) * 40)}px`
+                              }}
+                            ></div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {field.fieldType === 'text' && (
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium">Responses: {field.responses.length}</p>
+                      <div className="text-xs text-gray-500">
+                        Avg length: {
+                          field.responses.length > 0
+                            ? Math.round(field.responses.reduce((a: number, b: string) => a + b.length, 0) / field.responses.length)
+                            : 0
+                        } chars
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
@@ -194,7 +399,7 @@ function InsightsTab({ data }: { data: DashboardData }) {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Total Feedback</p>
-                <p className="text-2xl font-bold">0</p>
+                <p className="text-2xl font-bold">{data.stats.totalFeedback}</p>
               </div>
               <MessageSquare className="h-8 w-8 text-blue-600" />
             </div>
@@ -206,7 +411,7 @@ function InsightsTab({ data }: { data: DashboardData }) {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Page Views</p>
-                <p className="text-2xl font-bold">0</p>
+                <p className="text-2xl font-bold">{data.stats.pageViews}</p>
               </div>
               <Users className="h-8 w-8 text-green-600" />
             </div>
@@ -218,7 +423,9 @@ function InsightsTab({ data }: { data: DashboardData }) {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Average Rating</p>
-                <p className="text-2xl font-bold">N/A</p>
+                <p className="text-2xl font-bold">
+                  {data.stats.averageRating > 0 ? data.stats.averageRating.toFixed(1) : "N/A"}
+                </p>
               </div>
               <Star className="h-8 w-8 text-yellow-600" />
             </div>
@@ -230,7 +437,7 @@ function InsightsTab({ data }: { data: DashboardData }) {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Completion Rate</p>
-                <p className="text-2xl font-bold">0%</p>
+                <p className="text-2xl font-bold">{data.stats.completionRate}%</p>
               </div>
               <BarChart3 className="h-8 w-8 text-purple-600" />
             </div>
@@ -244,51 +451,127 @@ function InsightsTab({ data }: { data: DashboardData }) {
         <Card>
           <CardHeader>
             <CardTitle>Recent Customer Feedback</CardTitle>
+            <CardDescription>Latest feedback submissions from your customers</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {recentFeedbackData.map((feedback) => (
-                <div key={feedback.id} className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">
-                  <div className="flex">
-                    {[...Array(5)].map((_, i) => (
-                      <Star
-                        key={i}
-                        className={`h-4 w-4 ${
-                          i < feedback.rating ? 'text-yellow-400 fill-current' : 'text-gray-300'
-                        }`}
-                      />
-                    ))}
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium">{feedback.comment}</p>
-                    <p className="text-xs text-gray-500 mt-1">{feedback.time}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
+            {(data.stats.recentFeedback.length > 0 || insights?.recentSubmissions?.length > 0) ? (
+              <div className="space-y-4">
+                {/* Use insights data if available, otherwise fall back to dashboard data */}
+                {(insights?.recentSubmissions || data.stats.recentFeedback).map((feedback: any) => {
+                  // Handle both data formats
+                  const rating = feedback.rating || (feedback.submission_data?.rating) || 0
+                  const feedbackText = feedback.feedback ||
+                                     feedback.submission_data?.feedback ||
+                                     feedback.submission_data?.message ||
+                                     feedback.submission_data?.comment ||
+                                     "No feedback text"
+                  const submittedAt = feedback.submitted_at
+
+                  return (
+                    <div key={feedback.id} className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">
+                      <div className="flex">
+                        {[...Array(5)].map((_, i) => (
+                          <Star
+                            key={i}
+                            className={`h-4 w-4 ${
+                              i < rating ? 'text-yellow-400 fill-current' : 'text-gray-300'
+                            }`}
+                          />
+                        ))}
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-gray-900">{feedbackText}</p>
+                        <p className="text-xs text-gray-500 mt-1">
+                          {new Date(submittedAt).toLocaleDateString('en-US', {
+                            month: 'short',
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </p>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <MessageSquare className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                <p className="text-gray-500">No feedback submissions yet</p>
+                <p className="text-sm text-gray-400">Feedback will appear here once customers start submitting</p>
+              </div>
+            )}
           </CardContent>
         </Card>
 
         {/* Top Reported Issues */}
         <Card>
           <CardHeader>
-            <CardTitle>Top Reported Issues</CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-red-600" />
+              Top Reported Issues
+            </CardTitle>
+            <CardDescription>
+              Most frequently mentioned concerns in feedback
+            </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
-              <div className="flex items-center gap-3">
-                <div className="w-2 h-2 bg-red-500 rounded-full"></div>
-                <span className="text-sm">High Pricing</span>
+            {issuesLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-red-600"></div>
+                <span className="ml-2 text-sm text-gray-600">Analyzing feedback...</span>
               </div>
-              <div className="flex items-center gap-3">
-                <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
-                <span className="text-sm">Limited Selection</span>
+            ) : issuesData?.issues && issuesData.issues.length > 0 ? (
+              <div className="space-y-4">
+                {issuesData.issues.map((issue: any, index: number) => (
+                  <div key={issue.issue} className="border rounded-lg p-4 hover:bg-gray-50 transition-colors cursor-pointer">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-3 h-3 rounded-full ${
+                          issue.severity === 'high' ? 'bg-red-500' :
+                          issue.severity === 'medium' ? 'bg-orange-500' : 'bg-yellow-500'
+                        }`}></div>
+                        <span className="font-medium text-gray-900">{issue.issue}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-gray-500">{issue.count} mentions</span>
+                        <div className={`text-xs px-2 py-1 rounded-full ${
+                          issue.trend === 'up' ? 'bg-red-100 text-red-700' :
+                          issue.trend === 'down' ? 'bg-green-100 text-green-700' :
+                          'bg-gray-100 text-gray-700'
+                        }`}>
+                          {issue.trend === 'up' ? '↗' : issue.trend === 'down' ? '↘' : '→'} {issue.trend}
+                        </div>
+                      </div>
+                    </div>
+                    {issue.recentSubmissions.length > 0 && (
+                      <div className="mt-3 pl-6">
+                        <p className="text-xs text-gray-500 mb-2">Recent feedback:</p>
+                        <div className="space-y-1">
+                          {issue.recentSubmissions.slice(0, 2).map((submission: any) => (
+                            <div key={submission.id} className="text-xs text-gray-600 bg-gray-50 p-2 rounded">
+                              <span className="font-medium">{submission.submitter}</span>: "{submission.feedback.substring(0, 80)}..."
+                              <span className="text-gray-400 ml-2">({submission.rating}★)</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+                <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+                  <p className="text-sm text-blue-700">
+                    📊 Analyzed {issuesData.totalSubmissions} submissions • {issuesData.negativeSubmissions} negative feedback
+                  </p>
+                </div>
               </div>
-              <div className="flex items-center gap-3">
-                <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
-                <span className="text-sm">Long wait times</span>
+            ) : (
+              <div className="text-center py-8">
+                <AlertTriangle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                <p className="text-gray-500">No issues detected</p>
+                <p className="text-sm text-gray-400">Great job! Your customers seem satisfied</p>
               </div>
-            </div>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -308,6 +591,7 @@ interface FormTemplate {
 function ProfileTab({ data }: { data: DashboardData }) {
   const [businessName, setBusinessName] = useState(data.business.name)
   const [profileImage, setProfileImage] = useState(data.business.profile_image || "")
+  const [location, setLocation] = useState(data.business.location || "")
   const [backgroundType, setBackgroundType] = useState<"color" | "image">("color")
   const [backgroundValue, setBackgroundValue] = useState("#6366f1")
   const [socialLinks, setSocialLinks] = useState<SocialLink[]>(data.socialLinks || [])
@@ -325,7 +609,8 @@ function ProfileTab({ data }: { data: DashboardData }) {
         },
         body: JSON.stringify({
           name: businessName,
-          profile_image: profileImage
+          profile_image: profileImage,
+          location: location
         })
       })
 
@@ -381,6 +666,19 @@ function ProfileTab({ data }: { data: DashboardData }) {
                 placeholder="https://example.com/image.jpg"
               />
             </div>
+          </div>
+
+          <div>
+            <Label htmlFor="location">Location (Optional)</Label>
+            <Input
+              id="location"
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+              placeholder="e.g., San Francisco, CA or 123 Main St, City, State"
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              Enter your business location - city, state, or full address
+            </p>
           </div>
 
           {/* Live Preview */}
@@ -441,6 +739,260 @@ function ProfileTab({ data }: { data: DashboardData }) {
           )}
         </Button>
       </div>
+    </div>
+  )
+}
+
+function AudienceTab() {
+  const [audienceData, setAudienceData] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
+  const [selectedSegment, setSelectedSegment] = useState<string>("all")
+  const [searchTerm, setSearchTerm] = useState("")
+
+  useEffect(() => {
+    fetchAudienceData()
+  }, [])
+
+  const fetchAudienceData = async () => {
+    try {
+      const token = localStorage.getItem("token")
+      if (!token) return
+
+      const response = await fetch("/api/audience", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+
+      if (response.ok) {
+        const result = await response.json()
+        setAudienceData(result)
+      }
+    } catch (error) {
+      console.error("Failed to fetch audience data:", error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading audience data...</p>
+        </div>
+      </div>
+    )
+  }
+
+  const filteredCustomers = audienceData?.customerProfiles?.filter((customer: any) => {
+    const matchesSearch = customer.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         customer.name?.toLowerCase().includes(searchTerm.toLowerCase())
+    const matchesSegment = selectedSegment === "all" || customer.segments.includes(selectedSegment)
+    return matchesSearch && matchesSegment
+  }) || []
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900">Audience Management</h2>
+          <p className="text-gray-600">Manage your customer relationships and segments</p>
+        </div>
+        <Button variant="outline" onClick={fetchAudienceData}>
+          <span>🔄</span>
+        </Button>
+      </div>
+
+      {/* Overview Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Total Customers</p>
+                <p className="text-2xl font-bold">{audienceData?.overviewStats?.totalCustomers || 0}</p>
+              </div>
+              <Users className="h-8 w-8 text-blue-600" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Promoters</p>
+                <p className="text-2xl font-bold text-green-600">{audienceData?.overviewStats?.promoters || 0}</p>
+              </div>
+              <TrendingUp className="h-8 w-8 text-green-600" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Passives</p>
+                <p className="text-2xl font-bold text-yellow-600">{audienceData?.overviewStats?.passives || 0}</p>
+              </div>
+              <Minus className="h-8 w-8 text-yellow-600" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Detractors</p>
+                <p className="text-2xl font-bold text-red-600">{audienceData?.overviewStats?.detractors || 0}</p>
+              </div>
+              <TrendingDown className="h-8 w-8 text-red-600" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">NPS Score</p>
+                <p className="text-2xl font-bold">{audienceData?.overviewStats?.npsScore || 0}</p>
+              </div>
+              <BarChart3 className="h-8 w-8 text-purple-600" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Customer Segments */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <UserCheck className="h-5 w-5 text-blue-600" />
+            Customer Segments
+          </CardTitle>
+          <CardDescription>Automatically generated customer segments based on behavior</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {audienceData?.customerSegments?.map((segment: any) => (
+              <div key={segment.id} className="p-4 border rounded-lg hover:bg-gray-50 cursor-pointer"
+                   onClick={() => setSelectedSegment(segment.name.toLowerCase().replace(/\s+/g, '_'))}>
+                <h4 className="font-semibold text-gray-900">{segment.name}</h4>
+                <p className="text-sm text-gray-600 mt-1">{segment.description}</p>
+                <p className="text-lg font-bold text-blue-600 mt-2">{segment.customer_count} customers</p>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Customer List */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Users className="h-5 w-5 text-green-600" />
+                Customer List
+              </CardTitle>
+              <CardDescription>
+                {filteredCustomers.length} of {audienceData?.customerProfiles?.length || 0} customers
+              </CardDescription>
+            </div>
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <label className="text-sm font-medium">Segment:</label>
+                <select
+                  value={selectedSegment}
+                  onChange={(e) => setSelectedSegment(e.target.value)}
+                  className="border rounded px-2 py-1 text-sm"
+                >
+                  <option value="all">All Segments</option>
+                  {audienceData?.customerSegments?.map((segment: any) => (
+                    <option key={segment.id} value={segment.name.toLowerCase().replace(/\s+/g, '_')}>
+                      {segment.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex items-center gap-2">
+                <Search className="h-4 w-4 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Search customers..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="border rounded px-3 py-1 text-sm w-64"
+                />
+              </div>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {filteredCustomers.length > 0 ? (
+            <div className="space-y-4">
+              {filteredCustomers.map((customer: any) => (
+                <div key={customer.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50">
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                      <span className="text-blue-600 font-semibold">
+                        {customer.name ? customer.name.charAt(0).toUpperCase() : customer.email.charAt(0).toUpperCase()}
+                      </span>
+                    </div>
+                    <div>
+                      <h4 className="font-semibold text-gray-900">{customer.name || customer.email}</h4>
+                      <p className="text-sm text-gray-600">{customer.email}</p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <div className="flex">
+                          {[...Array(5)].map((_, i) => (
+                            <Star
+                              key={i}
+                              className={`h-3 w-3 ${
+                                i < customer.average_rating ? 'text-yellow-400 fill-current' : 'text-gray-300'
+                              }`}
+                            />
+                          ))}
+                        </div>
+                        <span className="text-xs text-gray-500">
+                          {customer.average_rating.toFixed(1)} avg • {customer.total_submissions} submissions
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <div className="text-right">
+                      <p className="text-sm font-medium">Engagement Score</p>
+                      <p className="text-lg font-bold text-blue-600">{customer.engagement_score}</p>
+                    </div>
+                    <div className="flex flex-wrap gap-1">
+                      {customer.segments.map((segment: string) => (
+                        <span key={segment} className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
+                          {segment.replace(/_/g, ' ')}
+                        </span>
+                      ))}
+                    </div>
+                    <Button variant="outline" size="sm">
+                      <Mail className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8">
+              <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+              <p className="text-gray-500">No customers found</p>
+              <p className="text-sm text-gray-400">Try adjusting your search or segment filters</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   )
 }
@@ -931,95 +1483,117 @@ export default function DashboardPage() {
       <div className="min-h-screen flex w-full">
         <Sidebar>
           <SidebarHeader>
-            <div className="flex items-center gap-3 px-2 py-2">
+            <div className="flex items-center gap-3 px-3 py-3">
               {data.business.profile_image ? (
                 <img
                   src={data.business.profile_image}
                   alt={data.business.name}
-                  className="w-8 h-8 rounded-full object-cover"
+                  className="w-10 h-10 rounded-full object-cover border-2 border-primary/20"
                 />
               ) : (
-                <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center">
-                  <span className="text-white font-bold text-sm">
+                <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center">
+                  <span className="text-primary-foreground font-bold text-sm">
                     {data.business.name.charAt(0).toUpperCase()}
                   </span>
                 </div>
               )}
               <div className="flex-1 min-w-0">
-                <h2 className="text-sm font-semibold text-gray-900 truncate">
-                  {data.business.name}
-                </h2>
-                <p className="text-xs text-gray-500 truncate">Dashboard</p>
+                <button
+                  onClick={() => router.push("/profile")}
+                  className="text-left w-full hover:bg-shadow rounded-md p-2 -m-2 transition-colors group"
+                >
+                  <h2 className="text-sm font-semibold text-header truncate group-hover:text-primary transition-colors">
+                    {data.business.name}
+                  </h2>
+                  <p className="text-xs text-subheader truncate">Click to edit profile</p>
+                </button>
               </div>
             </div>
           </SidebarHeader>
-          <SidebarContent>
-            <SidebarMenu>
+          <SidebarContent className="px-2">
+            <SidebarMenu className="space-y-1">
               <SidebarMenuItem>
                 <SidebarMenuButton
                   onClick={() => setActiveTab("overview")}
                   isActive={activeTab === "overview"}
+                  className={`w-full justify-start px-3 py-2.5 rounded-lg transition-all duration-200 ${
+                    activeTab === "overview"
+                      ? "bg-primary text-primary-foreground shadow-sm"
+                      : "text-header hover:bg-shadow hover:text-primary"
+                  }`}
                 >
                   <BarChart3 className="h-4 w-4" />
-                  <span>Overview</span>
+                  <span className="font-medium">Overview</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>
                 <SidebarMenuButton
                   onClick={() => setActiveTab("forms")}
                   isActive={activeTab === "forms"}
+                  className={`w-full justify-start px-3 py-2.5 rounded-lg transition-all duration-200 ${
+                    activeTab === "forms"
+                      ? "bg-primary text-primary-foreground shadow-sm"
+                      : "text-header hover:bg-shadow hover:text-primary"
+                  }`}
                 >
                   <FileText className="h-4 w-4" />
-                  <span>Forms</span>
+                  <span className="font-medium">Forms</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>
                 <SidebarMenuButton
                   onClick={() => setActiveTab("insights")}
                   isActive={activeTab === "insights"}
+                  className={`w-full justify-start px-3 py-2.5 rounded-lg transition-all duration-200 ${
+                    activeTab === "insights"
+                      ? "bg-primary text-primary-foreground shadow-sm"
+                      : "text-header hover:bg-shadow hover:text-primary"
+                  }`}
                 >
                   <BarChart className="h-4 w-4" />
-                  <span>Insights</span>
+                  <span className="font-medium">Insights</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>
                 <SidebarMenuButton
                   onClick={() => setActiveTab("audience")}
                   isActive={activeTab === "audience"}
+                  className={`w-full justify-start px-3 py-2.5 rounded-lg transition-all duration-200 ${
+                    activeTab === "audience"
+                      ? "bg-primary text-primary-foreground shadow-sm"
+                      : "text-header hover:bg-shadow hover:text-primary"
+                  }`}
                 >
                   <UserCheck className="h-4 w-4" />
-                  <span>Audience</span>
+                  <span className="font-medium">Audience</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  onClick={() => setActiveTab("profile")}
-                  isActive={activeTab === "profile"}
-                >
-                  <User className="h-4 w-4" />
-                  <span>Profile</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
+
             </SidebarMenu>
+
+            {/* Logout Button at Bottom */}
+            <div className="mt-auto p-2 border-t border-shadow">
+              <SidebarMenuButton
+                onClick={handleLogout}
+                className="w-full justify-start px-3 py-2.5 rounded-lg text-error hover:text-error hover:bg-error/10 transition-all duration-200"
+              >
+                <LogOut className="h-4 w-4" />
+                <span className="font-medium">Logout</span>
+              </SidebarMenuButton>
+            </div>
           </SidebarContent>
         </Sidebar>
 
         <SidebarInset className="flex-1">
-          <header className="bg-white border-b sticky top-0 z-10">
-            <div className="flex items-center justify-between px-4 py-4">
-              <div className="flex items-center gap-4">
-                <SidebarTrigger />
-                <h1 className="text-xl font-semibold text-gray-900">
-                  {activeTab === "overview" && "Dashboard Overview"}
-                  {activeTab === "forms" && "Forms Management"}
-                  {activeTab === "insights" && "Analytics & Insights"}
-                  {activeTab === "audience" && "Audience Management"}
-                  {activeTab === "profile" && "Business Profile"}
-                </h1>
-              </div>
-              <Button variant="outline" onClick={handleLogout}>
-                Logout
-              </Button>
+          <header className="bg-white border-b border-shadow sticky top-0 z-10">
+            <div className="flex items-center gap-4 px-6 py-4">
+              <SidebarTrigger className="text-header hover:bg-shadow" />
+              <h1 className="text-xl font-semibold text-header">
+                {activeTab === "overview" && "Dashboard Overview"}
+                {activeTab === "forms" && "Forms Management"}
+                {activeTab === "insights" && "Analytics & Insights"}
+                {activeTab === "audience" && "Audience Management"}
+              </h1>
             </div>
           </header>
 
@@ -1110,6 +1684,73 @@ export default function DashboardPage() {
                           <p className="text-sm text-gray-600">Completion Rate</p>
                           <p className="text-2xl font-bold text-gray-900">{data.stats.completionRate}%</p>
                         </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Quick Analytics Summary */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <TrendingUp className="h-5 w-5 text-blue-600" />
+                        This Week's Performance
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-4">
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-gray-600">New Submissions</span>
+                          <span className="font-semibold">{data.stats.totalFeedback}</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-gray-600">Average Rating</span>
+                          <span className="font-semibold">
+                            {data.stats.averageRating > 0 ? `${data.stats.averageRating}/5` : 'N/A'}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-gray-600">Response Rate</span>
+                          <span className="font-semibold">{data.stats.completionRate}%</span>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <BarChart3 className="h-5 w-5 text-green-600" />
+                        Quick Actions
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-3">
+                        <Button
+                          variant="outline"
+                          className="w-full justify-start gap-2"
+                          onClick={() => setActiveTab("forms")}
+                        >
+                          <FileText className="h-4 w-4" />
+                          Customize Form
+                        </Button>
+                        <Button
+                          variant="outline"
+                          className="w-full justify-start gap-2"
+                          onClick={() => setActiveTab("insights")}
+                        >
+                          <BarChart className="h-4 w-4" />
+                          View Analytics
+                        </Button>
+                        <Button
+                          variant="outline"
+                          className="w-full justify-start gap-2"
+                          onClick={() => window.open(`/${data.business.slug}`, '_blank')}
+                        >
+                          <ExternalLink className="h-4 w-4" />
+                          Preview Page
+                        </Button>
                       </div>
                     </CardContent>
                   </Card>
@@ -1753,19 +2394,9 @@ export default function DashboardPage() {
 
             {activeTab === "insights" && <InsightsTab data={data} />}
 
-            {activeTab === "audience" && (
-              <div className="text-center py-12">
-                <UserCheck className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-                <h2 className="text-2xl font-bold text-gray-900 mb-2">Audience Management Coming Soon</h2>
-                <p className="text-gray-600 max-w-md mx-auto">
-                  Customer management features will be available here soon.
-                </p>
-              </div>
-            )}
+            {activeTab === "audience" && <AudienceTab />}
 
-            {activeTab === "profile" && (
-              <ProfileTab data={data} />
-            )}
+
           </div>
         </SidebarInset>
       </div>

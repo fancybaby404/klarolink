@@ -29,8 +29,9 @@ CREATE TABLE IF NOT EXISTS businesses (
     password_hash VARCHAR(255) NOT NULL,
     profile_image TEXT,
     slug VARCHAR(100) UNIQUE NOT NULL,
+    location TEXT,
     background_type VARCHAR(20) DEFAULT 'color' CHECK (background_type IN ('color', 'image')),
-    background_value TEXT DEFAULT '#6366f1',
+    background_value TEXT DEFAULT '#CC79F0',
     is_active BOOLEAN DEFAULT true,
     subscription_tier VARCHAR(20) DEFAULT 'free' CHECK (subscription_tier IN ('free', 'pro', 'enterprise')),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
@@ -209,13 +210,14 @@ CREATE TRIGGER extract_feedback_data BEFORE INSERT OR UPDATE ON feedback_submiss
 -- =====================================================
 
 -- Insert demo business (using bcrypt hash for password "demo123")
-INSERT INTO businesses (name, email, password_hash, slug, profile_image, background_type, background_value) 
+INSERT INTO businesses (name, email, password_hash, slug, profile_image, location, background_type, background_value)
 VALUES (
     'Demo Business',
     'demo@klarolink.com',
     '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewdBPj/RK.PqhEIu', -- bcrypt hash for "demo123"
     'demo-business',
     '/placeholder.svg?height=100&width=100',
+    'San Francisco, CA',
     'color',
     '#6366f1'
 ) ON CONFLICT (email) DO NOTHING;
@@ -454,9 +456,9 @@ SELECT
     b.id,
     'branding',
     '{
-        "primary_color": "#6366f1",
-        "secondary_color": "#8b5cf6",
-        "font_family": "Inter",
+        "primary_color": "#CC79F0",
+        "secondary_color": "#3E7EF7",
+        "font_family": "Poppins",
         "logo_url": "/placeholder.svg?height=100&width=100"
     }'::jsonb
 FROM businesses b

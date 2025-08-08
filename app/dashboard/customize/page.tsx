@@ -19,7 +19,7 @@ export default function CustomizePage() {
   const [formFields, setFormFields] = useState<FormField[]>([])
   const [socialLinks, setSocialLinks] = useState<SocialLink[]>([])
   const [backgroundType, setBackgroundType] = useState<"color" | "image">("color")
-  const [backgroundColor, setBackgroundColor] = useState("#6366f1")
+  const [backgroundColor, setBackgroundColor] = useState("#CC79F0")
   const [backgroundImage, setBackgroundImage] = useState("")
   const router = useRouter()
 
@@ -49,7 +49,7 @@ export default function CustomizePage() {
       setFormFields(data.formFields || [])
       setSocialLinks(data.socialLinks || [])
       setBackgroundType(data.backgroundType || "color")
-      setBackgroundColor(data.backgroundColor || "#6366f1")
+      setBackgroundColor(data.backgroundColor || "#CC79F0")
       setBackgroundImage(data.backgroundImage || "")
     } catch (error) {
       console.error("Error fetching customization data:", error)
@@ -143,21 +143,21 @@ export default function CustomizePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="bg-white border-b">
+      <header className="bg-white border-b border-shadow">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <Link href="/dashboard">
-                <Button variant="ghost" size="sm">
+                <Button variant="ghost" size="sm" className="text-header hover:bg-shadow hover:text-primary">
                   <ArrowLeft className="h-4 w-4 mr-2" />
                   Back to Dashboard
                 </Button>
               </Link>
-              <h1 className="text-xl font-semibold">Customize Your Page</h1>
+              <h1 className="text-xl font-semibold text-header">Customize Your Page</h1>
             </div>
-            <Button onClick={saveCustomization} disabled={saving}>
+            <Button onClick={saveCustomization} disabled={saving} className="bg-primary text-primary-foreground hover:bg-primary/90">
               <Save className="h-4 w-4 mr-2" />
               {saving ? "Saving..." : "Save Changes"}
             </Button>
@@ -344,7 +344,7 @@ export default function CustomizePage() {
                       <Input
                         value={backgroundColor}
                         onChange={(e) => setBackgroundColor(e.target.value)}
-                        placeholder="#6366f1"
+                        placeholder="#CC79F0"
                       />
                     </div>
                   </div>

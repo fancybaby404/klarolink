@@ -16,7 +16,7 @@ export async function PUT(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { name, profile_image } = body
+    const { name, profile_image, location } = body
 
     // Validate required fields
     if (!name || !name.trim()) {
@@ -27,6 +27,7 @@ export async function PUT(request: NextRequest) {
     const updatedBusiness = await db.updateBusiness(payload.businessId, {
       name: name.trim(),
       profile_image: profile_image || null,
+      location: location || null,
     })
 
     if (!updatedBusiness) {
