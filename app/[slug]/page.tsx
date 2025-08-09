@@ -139,8 +139,13 @@ export default function FeedbackPage() {
     }
 
     // Submit feedback with authentication
-    await submitFeedback()
-    setSubmitting(false)
+    try {
+      await submitFeedback()
+      setSubmitting(false)
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Failed to submit feedback")
+      setSubmitting(false)
+    }
   }
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -185,8 +190,6 @@ export default function FeedbackPage() {
 
   const submitFeedback = async () => {
     try {
-      console.log("🚀 Submitting feedback:", { slug, formData })
-
       // Get authentication token from localStorage
       const token = localStorage.getItem("token")
       if (!token) {
@@ -204,17 +207,12 @@ export default function FeedbackPage() {
         }),
       })
 
-      console.log("📡 Feedback API response:", response.status, response.statusText)
-
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ error: "Unknown error" }))
-        console.error("❌ Feedback submission failed:", errorData)
         throw new Error(errorData.error || "Failed to submit feedback")
       }
 
       const result = await response.json()
-      console.log("✅ Feedback submitted successfully:", result)
-
       setSubmitted(true)
 
       // Track form submission
@@ -228,13 +226,10 @@ export default function FeedbackPage() {
             event_type: "form_submit",
           }),
         })
-        console.log("📊 Analytics tracked successfully")
       } catch (analyticsError) {
-        console.warn("⚠️ Analytics tracking failed:", analyticsError)
         // Don't fail the whole submission if analytics fails
       }
     } catch (error) {
-      console.error("❌ Feedback submission error:", error)
       setError(error instanceof Error ? error.message : "Failed to submit feedback. Please try again.")
     }
   }

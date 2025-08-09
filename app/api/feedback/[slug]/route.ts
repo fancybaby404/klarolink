@@ -54,8 +54,6 @@ export async function POST(request: NextRequest, { params }: { params: { slug: s
       user_agent: userAgent,
     })
 
-    console.log(`✅ Feedback submitted by user ${user.email} for business ${business.name}`)
-
     return NextResponse.json({
       message: "Feedback submitted successfully",
       submitter: {
@@ -64,7 +62,6 @@ export async function POST(request: NextRequest, { params }: { params: { slug: s
       },
     })
   } catch (error) {
-    console.error("Feedback submission error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }

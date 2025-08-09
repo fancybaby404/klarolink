@@ -58,7 +58,7 @@ import { SocialLinksManager } from "@/components/social-links-manager"
 import { BusinessProfileManager } from "@/components/business-profile-manager"
 import { LoadingSpinner, LoadingState } from "@/components/loading-spinner"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
-import type { Business } from "@/lib/database"
+import type { Business } from "@/lib/types"
 import type { FormField, SocialLink, FeedbackForm } from "@/lib/types"
 
 
@@ -121,11 +121,16 @@ function InsightsTab({ data }: { data: DashboardData }) {
   const [aiError, setAiError] = useState<string | null>(null)
   const [issuesData, setIssuesData] = useState<any>(null)
   const [issuesLoading, setIssuesLoading] = useState(true)
+  const [timeRange, setTimeRange] = useState("7d")
+  const [compareWith, setCompareWith] = useState("previous")
+  const [enhancedInsights, setEnhancedInsights] = useState<any>(null)
+  const [customerJourney, setCustomerJourney] = useState<any>(null)
+  const [benchmarks, setBenchmarks] = useState<any>(null)
 
   useEffect(() => {
     fetchInsights()
     fetchIssues()
-  }, [])
+  }, [timeRange, compareWith])
 
   // Fetch AI insights when the user scrolls near the bottom (minor UX tweak to reduce initial load)
   useEffect(() => { fetchAiInsights(); }, [])
@@ -155,7 +160,7 @@ function InsightsTab({ data }: { data: DashboardData }) {
       const token = localStorage.getItem("token")
       if (!token) return
 
-      const response = await fetch("/api/insights", {
+      const response = await fetch(`/api/insights?timeRange=${timeRange}&compareWith=${compareWith}`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -164,9 +169,12 @@ function InsightsTab({ data }: { data: DashboardData }) {
       if (response.ok) {
         const result = await response.json()
         setInsights(result.insights)
+        setEnhancedInsights(result.insights)
+        setCustomerJourney(result.customerJourney)
+        setBenchmarks(result.benchmarks)
       }
     } catch (error) {
-      console.error("Failed to fetch insights:", error)
+      // Error handling without console.log
     } finally {
       setLoading(false)
     }
@@ -207,19 +215,115 @@ function InsightsTab({ data }: { data: DashboardData }) {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
+      {/* Enhanced Header with Time Range Selector */}
+      <div className="flex items-center justify-between mb-6">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Customer Feedback Dashboard</h2>
-          <p className="text-gray-600">Analytics and insights from your customer feedback</p>
+          <h2 className="text-2xl font-bold text-gray-900">Advanced Analytics Dashboard</h2>
+          <p className="text-gray-600">Comprehensive insights and business intelligence from your customer feedback</p>
         </div>
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-gray-500">Last 7 Days</span>
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <label className="text-sm font-medium text-gray-700">Time Range:</label>
+            <select
+              value={timeRange}
+              onChange={(e) => setTimeRange(e.target.value)}
+              className="px-3 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+            >
+              <option value="7d">Last 7 Days</option>
+              <option value="30d">Last 30 Days</option>
+              <option value="90d">Last 90 Days</option>
+              <option value="1y">Last Year</option>
+            </select>
+          </div>
+          <div className="flex items-center gap-2">
+            <label className="text-sm font-medium text-gray-700">Compare:</label>
+            <select
+              value={compareWith}
+              onChange={(e) => setCompareWith(e.target.value)}
+              className="px-3 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+            >
+              <option value="previous">Previous Period</option>
+              <option value="lastYear">Same Period Last Year</option>
+            </select>
+          </div>
           <Button variant="outline" size="sm" onClick={() => { fetchInsights(); fetchAiInsights(true); }}>
             <span>🔄 Refresh</span>
           </Button>
         </div>
       </div>
+
+      {/* Key Performance Indicators */}
+      {enhancedInsights && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Satisfaction Score</p>
+                  <p className="text-2xl font-bold text-gray-900">{enhancedInsights.satisfactionScore?.current}%</p>
+                  <p className={`text-xs ${enhancedInsights.satisfactionScore?.change >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    {enhancedInsights.satisfactionScore?.change >= 0 ? '↗' : '↘'} {Math.abs(enhancedInsights.satisfactionScore?.change || 0)}% vs {compareWith}
+                  </p>
+                </div>
+                <div className="h-8 w-8 bg-green-100 rounded-full flex items-center justify-center">
+                  <span className="text-green-600">😊</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Completion Rate</p>
+                  <p className="text-2xl font-bold text-gray-900">{enhancedInsights.completionRate?.current}%</p>
+                  <p className={`text-xs ${enhancedInsights.completionRate?.change >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    {enhancedInsights.completionRate?.change >= 0 ? '↗' : '↘'} {Math.abs(enhancedInsights.completionRate?.change || 0)}% vs {compareWith}
+                  </p>
+                </div>
+                <div className="h-8 w-8 bg-blue-100 rounded-full flex items-center justify-center">
+                  <span className="text-blue-600">📝</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Response Time</p>
+                  <p className="text-2xl font-bold text-gray-900">{enhancedInsights.responseTimeAnalysis?.averageResponseTime?.toFixed(1)}m</p>
+                  <p className={`text-xs ${enhancedInsights.responseTimeAnalysis?.trend === 'improving' ? 'text-green-600' : 'text-red-600'}`}>
+                    {enhancedInsights.responseTimeAnalysis?.trend === 'improving' ? '↗ Improving' : '↘ Declining'}
+                  </p>
+                </div>
+                <div className="h-8 w-8 bg-purple-100 rounded-full flex items-center justify-center">
+                  <span className="text-purple-600">⏱️</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Total Submissions</p>
+                  <p className="text-2xl font-bold text-gray-900">{enhancedInsights.submissionTrends?.reduce((sum: number, day: any) => sum + day.count, 0) || 0}</p>
+                  <p className="text-xs text-gray-500">
+                    {timeRange === "7d" ? "Last 7 days" : timeRange === "30d" ? "Last 30 days" : timeRange === "90d" ? "Last 90 days" : "Last year"}
+                  </p>
+                </div>
+                <div className="h-8 w-8 bg-orange-100 rounded-full flex items-center justify-center">
+                  <span className="text-orange-600">📊</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* Submission Trends Chart */}
       <Card>
@@ -1246,18 +1350,15 @@ export default function DashboardPage() {
         })
 
         if (response.ok) {
-          console.log(`✅ Preview setting saved: ${enabled ? 'enabled' : 'disabled'}`)
           toast.success(`Live preview ${enabled ? 'enabled' : 'disabled'}`, {
             description: 'Setting saved automatically'
           })
         } else {
-          console.error('❌ Failed to save preview setting')
           toast.error('Failed to save preview setting', {
             description: 'Please try again'
           })
         }
       } catch (error) {
-        console.error('❌ Error saving preview setting:', error)
         toast.error('Error saving preview setting', {
           description: 'Please check your connection and try again'
         })
@@ -1414,9 +1515,7 @@ export default function DashboardPage() {
         setFormDescription(dashboardData.feedbackForm.description || "")
         setFormFields(dashboardData.feedbackForm.fields || [])
         setPreviewEnabled(dashboardData.feedbackForm.preview_enabled || false)
-        console.log(`📝 Loaded existing form: "${dashboardData.feedbackForm.title}" with ${dashboardData.feedbackForm.fields?.length || 0} fields, preview: ${dashboardData.feedbackForm.preview_enabled ? 'enabled' : 'disabled'}`)
       } else {
-        console.log(`⚠️  No existing form found for business: ${dashboardData.business.name}`)
         // Set default form fields if no form exists
         setFormTitle("Customer Feedback")
         setFormDescription("We value your feedback!")
@@ -1620,7 +1719,12 @@ export default function DashboardPage() {
                         <Copy className="h-4 w-4" />
                         Copy
                       </Button>
-                      <Button variant="outline" size="sm" className="gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="gap-2"
+                        onClick={handlePreviewForm}
+                      >
                         <Eye className="h-4 w-4" />
                         Preview
                       </Button>

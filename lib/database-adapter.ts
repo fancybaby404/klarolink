@@ -365,6 +365,35 @@ export interface DatabaseAdapter {
     recentSubmissions: FeedbackSubmission[]
   }>
 
+  // Enhanced Analytics
+  getEnhancedInsights(businessId: number, timeRange: string, compareWith: string): Promise<{
+    submissionTrends: Array<{ date: string; count: number; previousCount?: number }>
+    ratingTrends: Array<{ date: string; averageRating: number; previousRating?: number }>
+    responseTimeAnalysis: { averageResponseTime: number; trend: string }
+    satisfactionScore: { current: number; previous: number; change: number }
+    completionRate: { current: number; previous: number; change: number }
+    topPerformingFields: Array<{ fieldId: string; fieldLabel: string; satisfactionScore: number }>
+    underperformingFields: Array<{ fieldId: string; fieldLabel: string; issueCount: number }>
+    peakSubmissionTimes: Array<{ hour: number; dayOfWeek: number; count: number }>
+    geographicDistribution: Array<{ location: string; count: number; averageRating: number }>
+  }>
+
+  getCustomerJourneyAnalytics(businessId: number, timeRange: string): Promise<{
+    touchpoints: Array<{ stage: string; count: number; conversionRate: number }>
+    dropoffPoints: Array<{ fieldId: string; dropoffRate: number }>
+    averageJourneyTime: number
+    returnCustomerRate: number
+    firstTimeVsReturning: { firstTime: number; returning: number }
+    customerLifetimeValue: { average: number; segments: Array<{ segment: string; value: number }> }
+  }>
+
+  getPerformanceBenchmarks(businessId: number, timeRange: string): Promise<{
+    industryBenchmarks: { averageRating: number; responseRate: number; satisfactionScore: number }
+    competitorAnalysis: { position: string; strengths: string[]; weaknesses: string[] }
+    goalProgress: Array<{ metric: string; current: number; target: number; progress: number }>
+    recommendations: Array<{ priority: string; action: string; expectedImpact: string }>
+  }>
+
   // Customer profiles and audience management
   getCustomerProfiles(businessId: number): Promise<CustomerProfile[]>
   getCustomerProfile(businessId: number, email: string): Promise<CustomerProfile | null>
@@ -585,6 +614,196 @@ class MockDatabaseAdapter implements DatabaseAdapter {
     }
   }
 
+  async getEnhancedInsights(businessId: number, timeRange: string, compareWith: string): Promise<{
+    submissionTrends: Array<{ date: string; count: number; previousCount?: number }>
+    ratingTrends: Array<{ date: string; averageRating: number; previousRating?: number }>
+    responseTimeAnalysis: { averageResponseTime: number; trend: string }
+    satisfactionScore: { current: number; previous: number; change: number }
+    completionRate: { current: number; previous: number; change: number }
+    topPerformingFields: Array<{ fieldId: string; fieldLabel: string; satisfactionScore: number }>
+    underperformingFields: Array<{ fieldId: string; fieldLabel: string; issueCount: number }>
+    peakSubmissionTimes: Array<{ hour: number; dayOfWeek: number; count: number }>
+    geographicDistribution: Array<{ location: string; count: number; averageRating: number }>
+  }> {
+    const feedback = this.feedbackSubmissions.filter((s) => s.business_id === businessId)
+    const days = timeRange === "30d" ? 30 : timeRange === "90d" ? 90 : timeRange === "1y" ? 365 : 7
+
+    // Generate enhanced submission trends with comparison
+    const submissionTrends = []
+    for (let i = days - 1; i >= 0; i--) {
+      const date = new Date()
+      date.setDate(date.getDate() - i)
+      const dateStr = date.toISOString().split('T')[0]
+      const count = feedback.filter(f => f.submitted_at.startsWith(dateStr)).length
+
+      // Previous period comparison
+      const prevDate = new Date(date)
+      prevDate.setDate(prevDate.getDate() - days)
+      const prevDateStr = prevDate.toISOString().split('T')[0]
+      const previousCount = feedback.filter(f => f.submitted_at.startsWith(prevDateStr)).length
+
+      submissionTrends.push({ date: dateStr, count, previousCount })
+    }
+
+    // Rating trends with comparison
+    const ratingTrends = []
+    for (let i = days - 1; i >= 0; i--) {
+      const date = new Date()
+      date.setDate(date.getDate() - i)
+      const dateStr = date.toISOString().split('T')[0]
+      const dayFeedback = feedback.filter(f => f.submitted_at.startsWith(dateStr))
+      const ratings = dayFeedback.map(f => f.submission_data.rating).filter(r => typeof r === 'number')
+      const averageRating = ratings.length > 0 ? ratings.reduce((a, b) => a + b, 0) / ratings.length : 0
+
+      // Previous period comparison
+      const prevDate = new Date(date)
+      prevDate.setDate(prevDate.getDate() - days)
+      const prevDateStr = prevDate.toISOString().split('T')[0]
+      const prevDayFeedback = feedback.filter(f => f.submitted_at.startsWith(prevDateStr))
+      const prevRatings = prevDayFeedback.map(f => f.submission_data.rating).filter(r => typeof r === 'number')
+      const previousRating = prevRatings.length > 0 ? prevRatings.reduce((a, b) => a + b, 0) / prevRatings.length : 0
+
+      ratingTrends.push({ date: dateStr, averageRating, previousRating })
+    }
+
+    // Calculate satisfaction scores
+    const currentRatings = feedback.map(f => f.submission_data.rating).filter(r => typeof r === 'number')
+    const currentSatisfaction = currentRatings.length > 0 ?
+      (currentRatings.filter(r => r >= 4).length / currentRatings.length) * 100 : 0
+
+    // Mock previous period data
+    const previousSatisfaction = Math.max(0, currentSatisfaction + (Math.random() - 0.5) * 20)
+    const satisfactionChange = currentSatisfaction - previousSatisfaction
+
+    // Mock completion rate
+    const currentCompletion = 85 + Math.random() * 10
+    const previousCompletion = currentCompletion + (Math.random() - 0.5) * 10
+    const completionChange = currentCompletion - previousCompletion
+
+    // Peak submission times analysis
+    const peakSubmissionTimes = []
+    for (let hour = 0; hour < 24; hour++) {
+      for (let day = 0; day < 7; day++) {
+        const count = Math.floor(Math.random() * 10) + 1
+        peakSubmissionTimes.push({ hour, dayOfWeek: day, count })
+      }
+    }
+
+    return {
+      submissionTrends,
+      ratingTrends,
+      responseTimeAnalysis: {
+        averageResponseTime: 2.5 + Math.random() * 2, // minutes
+        trend: Math.random() > 0.5 ? "improving" : "declining"
+      },
+      satisfactionScore: {
+        current: Math.round(currentSatisfaction * 10) / 10,
+        previous: Math.round(previousSatisfaction * 10) / 10,
+        change: Math.round(satisfactionChange * 10) / 10
+      },
+      completionRate: {
+        current: Math.round(currentCompletion * 10) / 10,
+        previous: Math.round(previousCompletion * 10) / 10,
+        change: Math.round(completionChange * 10) / 10
+      },
+      topPerformingFields: [
+        { fieldId: "rating", fieldLabel: "Overall Rating", satisfactionScore: 4.2 },
+        { fieldId: "service", fieldLabel: "Service Quality", satisfactionScore: 4.0 },
+        { fieldId: "location", fieldLabel: "Location", satisfactionScore: 3.8 }
+      ],
+      underperformingFields: [
+        { fieldId: "pricing", fieldLabel: "Pricing", issueCount: 12 },
+        { fieldId: "wait_time", fieldLabel: "Wait Time", issueCount: 8 }
+      ],
+      peakSubmissionTimes: peakSubmissionTimes.sort((a, b) => b.count - a.count).slice(0, 10),
+      geographicDistribution: [
+        { location: "New York", count: 45, averageRating: 4.2 },
+        { location: "Los Angeles", count: 32, averageRating: 3.9 },
+        { location: "Chicago", count: 28, averageRating: 4.1 },
+        { location: "Houston", count: 22, averageRating: 3.8 }
+      ]
+    }
+  }
+
+  async getCustomerJourneyAnalytics(businessId: number, timeRange: string): Promise<{
+    touchpoints: Array<{ stage: string; count: number; conversionRate: number }>
+    dropoffPoints: Array<{ fieldId: string; dropoffRate: number }>
+    averageJourneyTime: number
+    returnCustomerRate: number
+    firstTimeVsReturning: { firstTime: number; returning: number }
+    customerLifetimeValue: { average: number; segments: Array<{ segment: string; value: number }> }
+  }> {
+    return {
+      touchpoints: [
+        { stage: "Page View", count: 1250, conversionRate: 100 },
+        { stage: "Form Started", count: 890, conversionRate: 71.2 },
+        { stage: "Form Completed", count: 756, conversionRate: 84.9 },
+        { stage: "Feedback Submitted", count: 723, conversionRate: 95.6 }
+      ],
+      dropoffPoints: [
+        { fieldId: "email", dropoffRate: 15.2 },
+        { fieldId: "phone", dropoffRate: 12.8 },
+        { fieldId: "detailed_feedback", dropoffRate: 8.3 }
+      ],
+      averageJourneyTime: 3.2, // minutes
+      returnCustomerRate: 23.5, // percentage
+      firstTimeVsReturning: {
+        firstTime: 76.5,
+        returning: 23.5
+      },
+      customerLifetimeValue: {
+        average: 245.50,
+        segments: [
+          { segment: "Promoters (9-10)", value: 385.20 },
+          { segment: "Passives (7-8)", value: 220.15 },
+          { segment: "Detractors (0-6)", value: 125.80 }
+        ]
+      }
+    }
+  }
+
+  async getPerformanceBenchmarks(businessId: number, timeRange: string): Promise<{
+    industryBenchmarks: { averageRating: number; responseRate: number; satisfactionScore: number }
+    competitorAnalysis: { position: string; strengths: string[]; weaknesses: string[] }
+    goalProgress: Array<{ metric: string; current: number; target: number; progress: number }>
+    recommendations: Array<{ priority: string; action: string; expectedImpact: string }>
+  }> {
+    return {
+      industryBenchmarks: {
+        averageRating: 3.8,
+        responseRate: 12.5,
+        satisfactionScore: 72.3
+      },
+      competitorAnalysis: {
+        position: "Above Average",
+        strengths: ["Customer Service", "Product Quality", "Response Time"],
+        weaknesses: ["Pricing Competitiveness", "Location Accessibility"]
+      },
+      goalProgress: [
+        { metric: "Customer Satisfaction", current: 4.2, target: 4.5, progress: 93.3 },
+        { metric: "Response Rate", current: 15.8, target: 20.0, progress: 79.0 },
+        { metric: "NPS Score", current: 42, target: 50, progress: 84.0 }
+      ],
+      recommendations: [
+        {
+          priority: "High",
+          action: "Implement pricing transparency initiative",
+          expectedImpact: "15% reduction in pricing-related complaints"
+        },
+        {
+          priority: "Medium",
+          action: "Optimize peak hour staffing",
+          expectedImpact: "20% improvement in wait time satisfaction"
+        },
+        {
+          priority: "Low",
+          action: "Enhance location signage and directions",
+          expectedImpact: "8% improvement in accessibility ratings"
+        }
+      ]
+    }
+  }
+
   async getCustomerProfiles(businessId: number): Promise<CustomerProfile[]> {
     return mockCustomerProfiles.filter(profile => profile.business_id === businessId)
   }
@@ -660,18 +879,10 @@ class NeonDatabaseAdapter implements DatabaseAdapter {
   private async query(sql: string, params: any[] = []): Promise<any[]> {
     let client;
     try {
-      console.log(`🔍 Executing query: ${sql.substring(0, 100)}${sql.length > 100 ? '...' : ''}`);
       client = await pool.connect();
       const result = await client.query(sql, params);
-      console.log(`✅ Query executed successfully, returned ${result.rows.length} rows`);
       return result.rows;
     } catch (error: any) {
-      console.error("❌ Database query error:", {
-        message: error.message,
-        code: error.code,
-        detail: error.detail,
-        sql: sql.substring(0, 200)
-      });
       throw error;
     } finally {
       if (client) {
@@ -685,7 +896,6 @@ class NeonDatabaseAdapter implements DatabaseAdapter {
       const result = await this.query('SELECT 1 as test');
       return result.length > 0;
     } catch (error) {
-      console.error("❌ Database connection test failed:", error);
       return false;
     }
   }
@@ -694,15 +904,11 @@ class NeonDatabaseAdapter implements DatabaseAdapter {
     try {
       const result = await this.query("SELECT * FROM businesses WHERE id = $1", [id]);
       if (result[0]) {
-        console.log("✅ Business found in Neon database:", { id: result[0].id, name: result[0].name });
         return result[0];
       } else {
-        console.log("⚠️ Business not found in Neon database for ID:", id);
         return null;
       }
     } catch (error: any) {
-      console.error("❌ Failed to get business from Neon database:", error.message);
-      console.log("🔄 Falling back to mock database adapter");
       return mockDatabaseAdapter.getBusiness(id);
     }
   }
@@ -712,7 +918,6 @@ class NeonDatabaseAdapter implements DatabaseAdapter {
       const result = await this.query("SELECT * FROM businesses WHERE email = $1", [email])
       return result[0] || null
     } catch (error) {
-      console.error("Database error:", error)
       return mockDatabaseAdapter.getBusinessByEmail(email)
     }
   }
@@ -722,7 +927,6 @@ class NeonDatabaseAdapter implements DatabaseAdapter {
       const result = await this.query("SELECT * FROM businesses WHERE slug = $1", [slug])
       return result[0] || null
     } catch (error) {
-      console.error("Database error:", error)
       return mockDatabaseAdapter.getBusinessBySlug(slug)
     }
   }
@@ -743,11 +947,8 @@ class NeonDatabaseAdapter implements DatabaseAdapter {
           data.background_value,
         ],
       )
-      console.log("✅ Business created successfully in Neon database:", result[0])
       return result[0]
     } catch (error) {
-      console.error("❌ Failed to create business in Neon database:", error)
-      console.log("🔄 Falling back to mock database adapter")
       return mockDatabaseAdapter.createBusiness(data)
     }
   }
@@ -1137,12 +1338,61 @@ class NeonDatabaseAdapter implements DatabaseAdapter {
         recentSubmissions: submissionsResult.slice(0, 10)
       }
 
-      console.log(`✅ Detailed insights calculated for ${submissionsResult.length} submissions`)
       return insights
     } catch (error) {
-      console.error("❌ Database error in getDetailedInsights:", error)
-      console.log("🔄 Falling back to mock database adapter")
       return mockDatabaseAdapter.getDetailedInsights(businessId)
+    }
+  }
+
+  async getEnhancedInsights(businessId: number, timeRange: string, compareWith: string): Promise<{
+    submissionTrends: Array<{ date: string; count: number; previousCount?: number }>
+    ratingTrends: Array<{ date: string; averageRating: number; previousRating?: number }>
+    responseTimeAnalysis: { averageResponseTime: number; trend: string }
+    satisfactionScore: { current: number; previous: number; change: number }
+    completionRate: { current: number; previous: number; change: number }
+    topPerformingFields: Array<{ fieldId: string; fieldLabel: string; satisfactionScore: number }>
+    underperformingFields: Array<{ fieldId: string; fieldLabel: string; issueCount: number }>
+    peakSubmissionTimes: Array<{ hour: number; dayOfWeek: number; count: number }>
+    geographicDistribution: Array<{ location: string; count: number; averageRating: number }>
+  }> {
+    try {
+      // For now, fall back to mock implementation
+      // In production, this would use complex SQL queries for enhanced analytics
+      return mockDatabaseAdapter.getEnhancedInsights(businessId, timeRange, compareWith)
+    } catch (error) {
+      return mockDatabaseAdapter.getEnhancedInsights(businessId, timeRange, compareWith)
+    }
+  }
+
+  async getCustomerJourneyAnalytics(businessId: number, timeRange: string): Promise<{
+    touchpoints: Array<{ stage: string; count: number; conversionRate: number }>
+    dropoffPoints: Array<{ fieldId: string; dropoffRate: number }>
+    averageJourneyTime: number
+    returnCustomerRate: number
+    firstTimeVsReturning: { firstTime: number; returning: number }
+    customerLifetimeValue: { average: number; segments: Array<{ segment: string; value: number }> }
+  }> {
+    try {
+      // For now, fall back to mock implementation
+      // In production, this would analyze user journey data
+      return mockDatabaseAdapter.getCustomerJourneyAnalytics(businessId, timeRange)
+    } catch (error) {
+      return mockDatabaseAdapter.getCustomerJourneyAnalytics(businessId, timeRange)
+    }
+  }
+
+  async getPerformanceBenchmarks(businessId: number, timeRange: string): Promise<{
+    industryBenchmarks: { averageRating: number; responseRate: number; satisfactionScore: number }
+    competitorAnalysis: { position: string; strengths: string[]; weaknesses: string[] }
+    goalProgress: Array<{ metric: string; current: number; target: number; progress: number }>
+    recommendations: Array<{ priority: string; action: string; expectedImpact: string }>
+  }> {
+    try {
+      // For now, fall back to mock implementation
+      // In production, this would compare against industry data
+      return mockDatabaseAdapter.getPerformanceBenchmarks(businessId, timeRange)
+    } catch (error) {
+      return mockDatabaseAdapter.getPerformanceBenchmarks(businessId, timeRange)
     }
   }
 

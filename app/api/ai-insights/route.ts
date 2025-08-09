@@ -43,7 +43,7 @@ function buildPrompt(businessName: string, submissions: any[]) {
     data: s.submission_data,
   }))
 
-  return `You are a senior customer experience analyst. Analyze customer feedback for the business "${businessName}".
+  return `You are a senior customer experience analyst and business intelligence expert. Analyze customer feedback for the business "${businessName}".
 
 Return ONLY valid JSON that matches this TypeScript shape:
 {
@@ -52,22 +52,57 @@ Return ONLY valid JSON that matches this TypeScript shape:
     "positivePct": number,    // 0-100
     "neutralPct": number,     // 0-100
     "negativePct": number,    // 0-100
-    "summary": string
+    "summary": string,
+    "confidenceScore": number // 0-100, how confident you are in this analysis
   },
-  "keyThemes": Array<{ theme: string; mentions: number; sentiment: "positive" | "neutral" | "negative" }>,
-  "urgentIssues": string[],   // Specific problems requiring immediate attention
-  "positiveHighlights": string[],
-  "recommendations": string[], // Actionable steps, concise and concrete
+  "keyThemes": Array<{
+    theme: string;
+    mentions: number;
+    sentiment: "positive" | "neutral" | "negative";
+    impact: "high" | "medium" | "low";
+    examples: string[] // 2-3 specific customer quotes
+  }>,
+  "urgentIssues": Array<{
+    issue: string;
+    severity: "critical" | "high" | "medium";
+    affectedCustomers: number;
+    businessImpact: string;
+    suggestedAction: string;
+    timeframe: string // "immediate", "1-2 weeks", "1 month"
+  }>,
+  "positiveHighlights": Array<{
+    highlight: string;
+    frequency: number;
+    businessValue: string;
+    amplificationStrategy: string
+  }>,
+  "recommendations": Array<{
+    category: "operations" | "service" | "product" | "marketing" | "training";
+    action: string;
+    priority: "high" | "medium" | "low";
+    effort: "low" | "medium" | "high";
+    expectedImpact: string;
+    roi: "high" | "medium" | "low";
+    timeline: string
+  }>,
   "trendAnalysis": {
     "summary": string,
-    "improving": string[],
-    "declining": string[],
-    "emerging": string[]
+    "improving": Array<{ area: string; evidence: string; momentum: "strong" | "moderate" | "weak" }>,
+    "declining": Array<{ area: string; evidence: string; urgency: "high" | "medium" | "low" }>,
+    "emerging": Array<{ trend: string; significance: string; monitoring: string }>
+  },
+  "businessMetrics": {
+    "customerRetentionRisk": number, // 0-100
+    "revenueImpactScore": number, // 0-100
+    "competitivePosition": "leading" | "competitive" | "lagging",
+    "growthOpportunities": string[],
+    "churnPredictors": string[]
   },
   "conclusion": {
     "strength": string,
     "needsImprovement": string,
-    "action": string
+    "action": string,
+    "nextReviewDate": string // suggested date for next analysis
   }
 }
 
@@ -77,8 +112,10 @@ ${JSON.stringify(compact).slice(0, 18000)}
 Guidelines:
 - Be specific to the data. Avoid generic platitudes.
 - If ratings exist (1-5), use them for sentiment percentages. Otherwise infer from text.
-- Group similar topics into coherent themes.
-- Keep lists short (3-6 items each) and high-signal.
+- Group similar topics into coherent themes with business impact.
+- Prioritize actionable insights that drive business value.
+- Consider customer lifetime value and retention in your analysis.
+- Provide specific, measurable recommendations with clear ROI.
 - The output MUST be valid JSON with double quotes, no backticks, no extra commentary.`
 }
 

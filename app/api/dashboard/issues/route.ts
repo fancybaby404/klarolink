@@ -29,8 +29,6 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Invalid token" }, { status: 401 })
     }
 
-    console.log(`🔍 Analyzing issues for business ID: ${payload.businessId}`)
-
     // Get all feedback submissions for this business
     const submissions = await db.getFeedbackSubmissions(payload.businessId)
     
@@ -133,8 +131,6 @@ export async function GET(request: NextRequest) {
       .sort((a, b) => b.count - a.count)
       .slice(0, 5) // Top 5 issues
 
-    console.log(`✅ Found ${topIssues.length} issues from ${submissions.length} submissions`)
-
     return NextResponse.json({
       issues: topIssues,
       totalSubmissions: submissions.length,
@@ -143,7 +139,6 @@ export async function GET(request: NextRequest) {
     })
 
   } catch (error) {
-    console.error("❌ Issues analysis error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
