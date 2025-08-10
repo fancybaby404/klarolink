@@ -965,7 +965,7 @@ function AudienceTab() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">NPS Score</p>
-                <p className="text-2xl font-bold">{audienceData?.overviewStats?.npsScore || 0}</p>
+                <p className="text-2xl font-bold text-purple-600">{audienceData?.overviewStats?.npsScore || 0}</p>
               </div>
               <BarChart3 className="h-8 w-8 text-purple-600" />
             </div>
@@ -1127,6 +1127,7 @@ export default function DashboardPage() {
     onSave,
     onCancel,
     isSaving,
+    onEditField,
   }: {
     initialTitle: string
     initialDescription: string
@@ -1134,6 +1135,7 @@ export default function DashboardPage() {
     onSave: (data: { title: string; description: string; fields: FormBuilderField[] }) => void
     onCancel: () => void
     isSaving: boolean
+    onEditField: (index: number, field: FormBuilderField) => void
   }) {
     const [localTitle, setLocalTitle] = useState(initialTitle)
     const [localDescription, setLocalDescription] = useState(initialDescription)
@@ -1237,8 +1239,7 @@ export default function DashboardPage() {
                         variant="ghost"
                         size="sm"
                         onClick={() => {
-                          // For now, just show a placeholder - field editing can be added later
-                          toast.info('Field editing coming soon')
+                          onEditField(index, field)
                         }}
                       >
                         <Edit className="h-4 w-4" />
@@ -1589,6 +1590,14 @@ export default function DashboardPage() {
   const handleEditField = (index: number) => {
     setEditingFieldIndex(index)
     setCurrentField({ ...formFields[index] })
+    setShowFieldEditor(true)
+  }
+
+  const handleEditFieldFromIsolatedEditor = (index: number, field: FormBuilderField) => {
+    // When editing from isolated editor, we need to work with the main formFields state
+    // Set the field to edit and open the modal
+    setEditingFieldIndex(index)
+    setCurrentField({ ...field })
     setShowFieldEditor(true)
   }
 
@@ -2483,6 +2492,7 @@ export default function DashboardPage() {
                       onSave={handleSaveForm}
                       onCancel={() => setIsEditingForm(false)}
                       isSaving={isSavingForm}
+                      onEditField={handleEditFieldFromIsolatedEditor}
                     />
                   )}
 

@@ -18,6 +18,7 @@ import { useParams } from "next/navigation"
 import { ReferralWidget } from "@/components/referral-widget"
 import { GamificationDisplay } from "@/components/gamification-display"
 import { SocialLinksDisplay, SocialLinksCompact } from "@/components/social-links-display"
+import { RegistrationModal } from "@/components/auth/registration-modal"
 import type { Business, FormField, SocialLink } from "@/lib/database"
 import QRCode from "qrcode"
 
@@ -76,6 +77,7 @@ export default function FeedbackPage() {
   const [loginPassword, setLoginPassword] = useState("")
   const [loginError, setLoginError] = useState("")
   const [isLoggingIn, setIsLoggingIn] = useState(false)
+  const [showRegistrationModal, setShowRegistrationModal] = useState(false)
   const [referralCode, setReferralCode] = useState<string | null>(null)
   const [showGamification, setShowGamification] = useState(false)
   const [currentUser, setCurrentUser] = useState<any>(null)
@@ -856,11 +858,34 @@ export default function FeedbackPage() {
 
           <div className="mt-6 pt-4 border-t border-shadow">
             <p className="text-xs text-body text-center">
-              Don't have an account? Contact your administrator for access.
+              Don't have an account?{" "}
+              <button
+                onClick={() => {
+                  setShowLoginDialog(false)
+                  setShowRegistrationModal(true)
+                }}
+                className="text-primary hover:text-secondary underline-offset-4 hover:underline font-medium"
+              >
+                Sign up
+              </button>
             </p>
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Registration Modal */}
+      <RegistrationModal
+        isOpen={showRegistrationModal}
+        onClose={() => setShowRegistrationModal(false)}
+        onSuccess={(userData) => {
+          // Registration modal handles auto-login and token storage
+          // We just need to set the current user from the login response
+          // The userData contains the user info from the login response
+          setCurrentUser(userData)
+          setShowRegistrationModal(false)
+          // The user is now logged in and can submit feedback
+        }}
+      />
     </div>
   )
 }

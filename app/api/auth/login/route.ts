@@ -65,11 +65,6 @@ export async function POST(request: NextRequest) {
 
     // If user found, handle user login
     if (user) {
-      console.log(`✅ User found, verifying password`)
-      console.log(`🔍 User object keys:`, Object.keys(user))
-      console.log(`🔍 User password_hash:`, user.password_hash ? 'Present' : 'Missing')
-      console.log(`🔍 User password:`, (user as any).password ? 'Present' : 'Missing')
-
       // Note: We don't check is_active here because it refers to business preview status, not user account status
 
       // Check if password hash exists (could be password_hash or password field)
@@ -79,8 +74,14 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: "Invalid email or password" }, { status: 401 })
       }
 
+      console.log(`🔍 Password hash from DB: ${passwordHash.substring(0, 20)}...`)
+      console.log(`🔍 Input password: ${password}`)
+      console.log(`🔍 Hash starts with $2b$: ${passwordHash.startsWith('$2b$')}`)
+
       // Verify password
       const isValidPassword = await bcrypt.compare(password, passwordHash)
+      console.log(`🔍 Password comparison result: ${isValidPassword}`)
+
       if (!isValidPassword) {
         console.log(`❌ Invalid password for user: ${email}`)
         return NextResponse.json({ error: "Invalid email or password" }, { status: 401 })
