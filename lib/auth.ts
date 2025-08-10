@@ -28,8 +28,12 @@ export function generateUserToken(userId: number): string {
 
 export function verifyToken(token: string): { businessId: number } | null {
   try {
-    return jwt.verify(token, JWT_SECRET) as { businessId: number }
-  } catch {
+    console.log('🔑 Verifying token, length:', token.length)
+    const decoded = jwt.verify(token, JWT_SECRET) as { businessId: number }
+    console.log('✅ Token verified successfully, businessId:', decoded.businessId)
+    return decoded
+  } catch (error) {
+    console.log('❌ Token verification failed:', error instanceof Error ? error.message : 'Unknown error')
     return null
   }
 }
@@ -304,6 +308,8 @@ export async function getUserByEmail(email: string): Promise<User | null> {
     const user = await db.getUserByEmail(email)
     return user
   } catch (error) {
+    // Log error for debugging but don't expose to client
+    console.error('Database error in getUserByEmail:', error)
     return null
   }
 }

@@ -13,8 +13,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog"
-import { Instagram, Twitter, Facebook, Linkedin, Youtube, Globe, Send, CheckCircle, Eye, Share2, Copy, QrCode } from "lucide-react"
+import { Instagram, Twitter, Facebook, Linkedin, Youtube, Globe, Send, CheckCircle, Eye, Share2, Copy, QrCode, Gift, Trophy } from "lucide-react"
 import { useParams } from "next/navigation"
+import { ReferralWidget } from "@/components/referral-widget"
+import { GamificationDisplay } from "@/components/gamification-display"
 import { SocialLinksDisplay, SocialLinksCompact } from "@/components/social-links-display"
 import type { Business, FormField, SocialLink } from "@/lib/database"
 import QRCode from "qrcode"
@@ -74,11 +76,32 @@ export default function FeedbackPage() {
   const [loginPassword, setLoginPassword] = useState("")
   const [loginError, setLoginError] = useState("")
   const [isLoggingIn, setIsLoggingIn] = useState(false)
+  const [referralCode, setReferralCode] = useState<string | null>(null)
+  const [showGamification, setShowGamification] = useState(false)
+  const [currentUser, setCurrentUser] = useState<any>(null)
 
   useEffect(() => {
-    // Check if we're in preview mode
+    // Check if we're in preview mode and referral code
     const urlParams = new URLSearchParams(window.location.search)
     setIsPreviewMode(urlParams.get('preview') === 'true')
+
+    const refCode = urlParams.get('ref')
+    if (refCode) {
+      setReferralCode(refCode)
+      // Track referral click
+      fetch("/api/referrals/track", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          referralCode: refCode,
+          action: "click",
+        }),
+      })
+    }
+
+    // Clear any existing user authentication to ensure clean start for public feedback session
+    localStorage.removeItem("userToken")
+    setCurrentUser(null)
 
     fetchPageData()
     trackPageView()
@@ -131,7 +154,7 @@ export default function FeedbackPage() {
     }
 
     // Check if user is authenticated
-    const token = localStorage.getItem("token")
+    const token = localStorage.getItem("userToken")
     if (!token) {
       setSubmitting(false)
       setShowLoginDialog(true)
@@ -141,9 +164,9 @@ export default function FeedbackPage() {
     // Submit feedback with authentication
     try {
       await submitFeedback()
-      setSubmitting(false)
     } catch (error) {
       setError(error instanceof Error ? error.message : "Failed to submit feedback")
+    } finally {
       setSubmitting(false)
     }
   }
@@ -173,7 +196,8 @@ export default function FeedbackPage() {
       const { token, user } = await response.json()
 
       // Store the token for future requests
-      localStorage.setItem("token", token)
+      localStorage.setItem("userToken", token)
+      setCurrentUser(user)
 
       // Now submit the feedback
       await submitFeedback()
@@ -191,7 +215,7 @@ export default function FeedbackPage() {
   const submitFeedback = async () => {
     try {
       // Get authentication token from localStorage
-      const token = localStorage.getItem("token")
+      const token = localStorage.getItem("userToken")
       if (!token) {
         throw new Error("Authentication required. Please log in to submit feedback.")
       }
@@ -204,16 +228,26 @@ export default function FeedbackPage() {
         },
         body: JSON.stringify({
           formData,
+          referralCode,
         }),
       })
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ error: "Unknown error" }))
+
+        // If it's an authentication error, clear the token and show login modal
+        if (response.status === 401) {
+          localStorage.removeItem("userToken")
+          setShowLoginDialog(true)
+          return
+        }
+
         throw new Error(errorData.error || "Failed to submit feedback")
       }
 
       const result = await response.json()
       setSubmitted(true)
+      setShowGamification(true)
 
       // Track form submission
       try {
@@ -457,20 +491,47 @@ export default function FeedbackPage() {
   if (submitted) {
     return (
       <div className="min-h-screen flex items-center justify-center p-4" style={backgroundStyle}>
-        <div className="bg-white/95 backdrop-blur-sm rounded-2xl p-8 max-w-md w-full text-center shadow-2xl border border-shadow">
-          <CheckCircle className="h-16 w-16 text-success mx-auto mb-4" />
-          <h1 className="text-2xl font-bold text-header mb-2">Thank You!</h1>
-          <p className="text-body mb-6">
-            Your feedback has been submitted successfully. We appreciate you taking the time to share your thoughts with
-            us.
-          </p>
-          <Button
-            onClick={() => window.location.reload()}
-            variant="outline"
-            className="border-shadow text-header hover:bg-shadow hover:text-primary"
-          >
-            Submit Another Response
-          </Button>
+        <div className="max-w-2xl w-full space-y-6">
+          {/* Success Message */}
+          <div className="bg-white/95 backdrop-blur-sm rounded-2xl p-8 text-center shadow-2xl border border-shadow">
+            <CheckCircle className="h-16 w-16 text-success mx-auto mb-4" />
+            <h1 className="text-2xl font-bold text-header mb-2">Thank You!</h1>
+            <p className="text-body mb-6">
+              Your feedback has been submitted successfully. We appreciate you taking the time to share your thoughts with
+              us.
+            </p>
+
+            {/* Gamification Display */}
+            {showGamification && currentUser && (
+              <div className="mb-6">
+                <GamificationDisplay
+                  userId={currentUser.id}
+                  businessId={data?.business.id}
+                  compact={true}
+                  showAnimation={true}
+                />
+              </div>
+            )}
+
+            {/* Referral Widget */}
+            {currentUser && data?.business && (
+              <div className="mb-6">
+                <ReferralWidget
+                  businessId={data.business.id}
+                  businessSlug={data.business.slug}
+                  businessName={data.business.name}
+                />
+              </div>
+            )}
+
+            <Button
+              onClick={() => window.location.reload()}
+              variant="outline"
+              className="border-shadow text-header hover:bg-shadow hover:text-primary"
+            >
+              Submit Another Response
+            </Button>
+          </div>
         </div>
       </div>
     )
@@ -559,15 +620,8 @@ export default function FeedbackPage() {
         {(isPreviewMode || data.previewEnabled) && (
           <Card className="bg-white/95 backdrop-blur-sm shadow-2xl border border-shadow mb-6">
             <CardHeader>
-              <CardTitle className="text-header">Share Your Experience</CardTitle>
-              <CardDescription className="text-subheader">Your feedback helps us improve our service</CardDescription>
-              {isPreviewMode && (
-                <div className="bg-info/10 border border-info/20 rounded-lg p-3 mt-2">
-                  <p className="text-sm text-info font-medium">
-                    🔍 Preview Mode - This form is being previewed from the dashboard
-                  </p>
-                </div>
-              )}
+              <CardTitle className="text-header">{data.formTitle || 'Share Your Experience'}</CardTitle>
+              <CardDescription className="text-subheader">{data.formDescription || 'Your feedback helps us improve our service'}</CardDescription>
             </CardHeader>
             <CardContent>
             <form onSubmit={handleSubmit} className="space-y-6">

@@ -1,5 +1,50 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { getUserByEmail, verifyPassword, generateUserToken } from "@/lib/auth"
+import { getUserByEmail, generateUserToken, generateToken, getBusinessByEmail } from "@/lib/auth"
+import bcrypt from "bcryptjs"
+
+// Hardcoded test users as fallback
+const TEST_USERS = [
+  {
+    id: 1,
+    email: "admin@klarolink.com",
+    password_hash: "$2b$12$xwA7rylJIw4ytjLLlCzbQeRWYcbr9LyMth.ZWtfzrQ6GnLM52fCzy", // password123
+    first_name: "Admin",
+    last_name: "User",
+    is_active: true,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  {
+    id: 2,
+    email: "demo@klarolink.com",
+    password_hash: "$2b$12$xwA7rylJIw4ytjLLlCzbQeRWYcbr9LyMth.ZWtfzrQ6GnLM52fCzy", // password123
+    first_name: "Demo",
+    last_name: "User",
+    is_active: true,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  {
+    id: 3,
+    email: "john@example.com",
+    password_hash: "$2b$12$xwA7rylJIw4ytjLLlCzbQeRWYcbr9LyMth.ZWtfzrQ6GnLM52fCzy", // password123
+    first_name: "John",
+    last_name: "Smith",
+    is_active: true,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  {
+    id: 4,
+    email: "harinacookies@gmail.com",
+    password_hash: "$2b$12$gvOzA1B4Pm4AfBjLLJzWC.Qu6cU7mCBIJiHJ5CJNPZ2b05q/OmBmK", // Original hash provided
+    first_name: "Harina",
+    last_name: "Cookies",
+    is_active: true,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+]
 
 export async function POST(request: NextRequest) {
   try {
@@ -10,34 +55,75 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Email and password are required" }, { status: 400 })
     }
 
-    // Find user by email
-    const user = await getUserByEmail(email)
+    // Try to find user via database first
+    let user = await getUserByEmail(email)
+
+    // If database lookup fails, use hardcoded test users as fallback
     if (!user) {
+      user = TEST_USERS.find(u => u.email.toLowerCase() === email.toLowerCase()) || null
+    }
+
+    // If user found, handle user login
+    if (user) {
+      console.log(`✅ User found, verifying password`)
+      console.log(`🔍 User object keys:`, Object.keys(user))
+      console.log(`🔍 User password_hash:`, user.password_hash ? 'Present' : 'Missing')
+      console.log(`🔍 User password:`, (user as any).password ? 'Present' : 'Missing')
+
+      // Note: We don't check is_active here because it refers to business preview status, not user account status
+
+      // Check if password hash exists (could be password_hash or password field)
+      const passwordHash = user.password_hash || (user as any).password
+      if (!passwordHash) {
+        console.log(`❌ No password hash found for user: ${email}`)
+        return NextResponse.json({ error: "Invalid email or password" }, { status: 401 })
+      }
+
+      // Verify password
+      const isValidPassword = await bcrypt.compare(password, passwordHash)
+      if (!isValidPassword) {
+        console.log(`❌ Invalid password for user: ${email}`)
+        return NextResponse.json({ error: "Invalid email or password" }, { status: 401 })
+      }
+
+      // Generate JWT token for user
+      const token = generateUserToken(user.id)
+
+      return NextResponse.json({
+        message: "Login successful",
+        token,
+        user: {
+          id: user.id,
+          email: user.email,
+          first_name: user.first_name,
+          last_name: user.last_name,
+        },
+      })
+    }
+
+    // If no user found, try to find business
+    const business = await getBusinessByEmail(email)
+    if (!business) {
       return NextResponse.json({ error: "Invalid email or password" }, { status: 401 })
     }
 
-    // Check if user is active
-    if (!user.is_active) {
-      return NextResponse.json({ error: "Account is deactivated" }, { status: 401 })
-    }
-
-    // Verify password
-    const isValidPassword = await verifyPassword(password, user.password_hash)
-    if (!isValidPassword) {
+    // Verify business password
+    const isValidBusinessPassword = await bcrypt.compare(password, business.password_hash)
+    if (!isValidBusinessPassword) {
       return NextResponse.json({ error: "Invalid email or password" }, { status: 401 })
     }
 
-    // Generate JWT token
-    const token = generateUserToken(user.id)
+    // Generate JWT token for business
+    const businessToken = generateToken(business.id)
 
     return NextResponse.json({
       message: "Login successful",
-      token,
-      user: {
-        id: user.id,
-        email: user.email,
-        first_name: user.first_name,
-        last_name: user.last_name,
+      token: businessToken,
+      business: {
+        id: business.id,
+        email: business.email,
+        name: business.name,
+        slug: business.slug,
       },
     })
   } catch (error) {

@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useCallback, memo } from "react"
 import { useRouter } from "next/navigation"
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd"
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts'
@@ -1116,6 +1116,188 @@ export default function DashboardPage() {
   const [showFieldEditor, setShowFieldEditor] = useState(false)
   const [editingFieldIndex, setEditingFieldIndex] = useState<number | null>(null)
   const [currentField, setCurrentField] = useState<FormBuilderField | null>(null)
+  // Stable preview refresh key; increments only on save or toggle
+  const [previewRefreshKey, setPreviewRefreshKey] = useState(0)
+
+  // Completely isolated Form Editor to prevent any parent re-renders from affecting typing
+  const IsolatedFormEditor = memo(function IsolatedFormEditor({
+    initialTitle,
+    initialDescription,
+    initialFields,
+    onSave,
+    onCancel,
+    isSaving,
+  }: {
+    initialTitle: string
+    initialDescription: string
+    initialFields: FormBuilderField[]
+    onSave: (data: { title: string; description: string; fields: FormBuilderField[] }) => void
+    onCancel: () => void
+    isSaving: boolean
+  }) {
+    const [localTitle, setLocalTitle] = useState(initialTitle)
+    const [localDescription, setLocalDescription] = useState(initialDescription)
+    const [localFields, setLocalFields] = useState<FormBuilderField[]>(initialFields)
+
+    // Only update local state when initial values change (new edit session)
+    useEffect(() => {
+      setLocalTitle(initialTitle)
+      setLocalDescription(initialDescription)
+      setLocalFields(initialFields)
+    }, [initialTitle, initialDescription, initialFields])
+
+    const handleSave = () => {
+      onSave({
+        title: localTitle,
+        description: localDescription,
+        fields: localFields,
+      })
+    }
+
+    return (
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Edit Form</CardTitle>
+              <CardDescription>Customize your feedback form</CardDescription>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={onCancel}
+            >
+              <X className="h-4 w-4 mr-2" />
+              Close Editor
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="form-title">Form Header</Label>
+              <Input
+                id="form-title"
+                value={localTitle}
+                onChange={(e) => setLocalTitle(e.target.value)}
+                placeholder="Share Your Experience"
+              />
+            </div>
+            <div>
+              <Label htmlFor="form-description">Form Subtext</Label>
+              <Input
+                id="form-description"
+                value={localDescription}
+                onChange={(e) => setLocalDescription(e.target.value)}
+                placeholder="Your feedback helps us improve our service"
+              />
+            </div>
+          </div>
+
+          <div>
+            <h4 className="font-medium mb-3">Form Fields</h4>
+            <div className="space-y-3">
+              {localFields.map((field, index) => (
+                <Card key={field.id} className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3 flex-1">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="text-sm font-medium capitalize">
+                            {field.type}
+                          </span>
+                          {field.required && (
+                            <span className="text-xs bg-red-100 text-red-600 px-2 py-1 rounded">
+                              Required
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-sm text-gray-600">{field.label}</p>
+                        {field.type === 'checkbox' && field.options && (
+                          <p className="text-xs text-gray-400 mt-1">
+                            Checkbox options: {field.options.join(", ")}
+                          </p>
+                        )}
+                        {field.type === 'select' && field.options && (
+                          <p className="text-xs text-gray-400 mt-1">
+                            Select options: {field.options.join(", ")}
+                          </p>
+                        )}
+                        {field.type !== 'checkbox' && field.type !== 'select' && field.placeholder && (
+                          <p className="text-xs text-gray-400 mt-1">
+                            Placeholder: {field.placeholder}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          // For now, just show a placeholder - field editing can be added later
+                          toast.info('Field editing coming soon')
+                        }}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          const newFields = localFields.filter((_, i) => i !== index)
+                          setLocalFields(newFields)
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex justify-between items-center pt-4 border-t">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                // Add a simple text field for now
+                const newField: FormBuilderField = {
+                  id: `field_${Date.now()}`,
+                  type: 'text',
+                  label: 'New Field',
+                  required: false,
+                  placeholder: 'Enter text...'
+                }
+                setLocalFields([...localFields, newField])
+              }}
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Add Field
+            </Button>
+            <Button
+              type="button"
+              onClick={handleSave}
+              disabled={isSaving}
+            >
+              {isSaving ? (
+                <LoadingSpinner size="sm" />
+              ) : (
+                <Save className="h-4 w-4" />
+              )}
+              {isSaving ? 'Saving...' : 'Save Form'}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    )
+  })
+
   const [isSavingForm, setIsSavingForm] = useState(false)
   const [previewEnabled, setPreviewEnabled] = useState(false)
   const router = useRouter()
@@ -1284,38 +1466,75 @@ export default function DashboardPage() {
     }
   }
 
-  const handleSaveForm = async () => {
-    if (!data?.business.id) return
+  const handleSaveForm = async (formData: { title: string; description: string; fields: FormBuilderField[] }) => {
+    console.log('🚀 Save Form button clicked!')
 
+    if (!data?.business.id) {
+      console.log('❌ No business ID found')
+      toast.error('Business ID not found', {
+        description: 'Please refresh the page and try again'
+      })
+      return
+    }
+
+    console.log('✅ Business ID found:', data.business.id)
     setIsSavingForm(true)
     try {
+      console.log('🔍 Saving form with data:', {
+        business_id: data.business.id,
+        title: formData.title,
+        description: formData.description,
+        fieldsCount: formData.fields.length,
+        preview_enabled: previewEnabled
+      })
+
+      const token = localStorage.getItem('token')
+      console.log('🔑 Token for form save:', token ? 'Present' : 'Missing')
+
+      if (!token) {
+        toast.error('Authentication required', {
+          description: 'Please log in again'
+        })
+        router.push('/login')
+        return
+      }
+
       const response = await fetch('/api/forms', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
           business_id: data.business.id,
-          title: formTitle || 'Feedback Form',
-          description: formDescription || '',
-          fields: formFields,
+          title: formData.title.trim() || 'Feedback Form',
+          description: formData.description.trim(),
+          fields: formData.fields,
           preview_enabled: previewEnabled
         })
       })
+
+      const responseData = await response.json()
+      console.log('📝 Form save response:', responseData)
 
       if (response.ok) {
         console.log('✅ Form saved successfully')
         toast.success('Form saved successfully', {
           description: 'Your feedback form has been updated'
         })
+        // Commit local edits to main state and close editor
+        setFormTitle(formData.title)
+        setFormDescription(formData.description)
+        setFormFields(formData.fields)
         setIsEditingForm(false)
+        // Bump preview only after successful save
+        setPreviewRefreshKey((k) => k + 1)
         // Refresh dashboard data to show updated form
         fetchDashboardData()
       } else {
-        console.error('❌ Failed to save form')
+        console.error('❌ Failed to save form:', responseData)
         toast.error('Failed to save form', {
-          description: 'Please try again'
+          description: responseData.error || 'Please try again'
         })
       }
     } catch (error) {
@@ -1342,14 +1561,15 @@ export default function DashboardPage() {
           },
           body: JSON.stringify({
             business_id: data.business.id,
-            title: formTitle || 'Feedback Form',
-            description: formDescription || '',
+            title: (formTitle || 'Feedback Form').trim(),
+            description: (formDescription || '').trim(),
             fields: formFields,
             preview_enabled: enabled
           })
         })
 
         if (response.ok) {
+          setPreviewRefreshKey((k) => k + 1)
           toast.success(`Live preview ${enabled ? 'enabled' : 'disabled'}`, {
             description: 'Setting saved automatically'
           })
@@ -1548,7 +1768,7 @@ export default function DashboardPage() {
     router.push("/")
   }
 
-  return (
+  return (<>
     <LoadingState
       isLoading={loading}
       error={error}
@@ -1562,6 +1782,186 @@ export default function DashboardPage() {
     >
       <DashboardContent />
     </LoadingState>
+      {/* Global Field Editor Modal - stable, not nested in DashboardContent */}
+      <Dialog open={showFieldEditor}>
+        <DialogContent forceMount className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>
+              {editingFieldIndex !== null ? 'Edit Field' : 'Add New Field'}
+            </DialogTitle>
+            <DialogDescription>
+              Configure the field properties below.
+            </DialogDescription>
+          </DialogHeader>
+
+          {currentField && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="field-type">Field Type</Label>
+                  <Select
+                    value={currentField.type}
+                    onValueChange={handleFieldTypeChange}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="text">Text</SelectItem>
+                      <SelectItem value="email">Email</SelectItem>
+                      <SelectItem value="textarea">Textarea</SelectItem>
+                      <SelectItem value="rating">Rating</SelectItem>
+                      <SelectItem value="select">Select</SelectItem>
+                      <SelectItem value="checkbox">Checkbox</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    id="field-required"
+                    checked={currentField.required}
+                    onCheckedChange={(checked) => {
+                      setCurrentField({ ...currentField, required: checked })
+                    }}
+                  />
+                  <Label htmlFor="field-required">Required</Label>
+                </div>
+              </div>
+
+              <div>
+                <Label htmlFor="field-label">Field Label</Label>
+                <Input
+                  id="field-label"
+                  value={currentField.label}
+                  onChange={(e) => {
+                    e.stopPropagation()
+                    setCurrentField({ ...currentField, label: e.target.value })
+                  }}
+                  placeholder="Enter field label"
+                />
+              </div>
+
+              {currentField.type === 'checkbox' ? (
+                <div>
+                  <Label htmlFor="checkbox-options">Checkbox Options (one per line)</Label>
+                  <Textarea
+                    id="checkbox-options"
+                    value={currentField.options?.join('\n') || ''}
+                    onChange={(e) => {
+                      e.stopPropagation()
+                      const lines = e.target.value.split('\n')
+                      setCurrentField({
+                        ...currentField,
+                        options: lines
+                      })
+                    }}
+                    placeholder="Option 1&#10;Option 2&#10;Option 3"
+                    rows={4}
+                    className="font-mono"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Each line will become a separate checkbox option. Empty lines will be ignored when saving.
+                  </p>
+                </div>
+              ) : (
+                <div>
+                  <Label htmlFor="field-placeholder">Placeholder (Optional)</Label>
+                  <Input
+                    id="field-placeholder"
+                    value={currentField.placeholder || ''}
+                    onChange={(e) => {
+                      e.stopPropagation()
+                      setCurrentField({ ...currentField, placeholder: e.target.value })
+                    }}
+                    placeholder="Enter placeholder text"
+                  />
+                </div>
+              )}
+
+              {currentField.type === 'select' && (
+                <div>
+                  <Label htmlFor="field-options">Select Options (one per line)</Label>
+                  <Textarea
+                    id="field-options"
+                    value={currentField.options?.join('\n') || ''}
+                    onChange={(e) => {
+                      e.stopPropagation()
+                      const lines = e.target.value.split('\n')
+                      setCurrentField({
+                        ...currentField,
+                        options: lines
+                      })
+                    }}
+                    placeholder="Option 1&#10;Option 2&#10;Option 3"
+                    rows={4}
+                    className="font-mono"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Each line will become a separate select option. Empty lines will be ignored when saving.
+                  </p>
+                </div>
+              )}
+
+              {currentField.type === 'checkbox' && (
+                <div>
+                  <Label>Preview</Label>
+                  <div className="p-4 border border-gray-200 rounded-lg bg-gray-50 space-y-3">
+                    <div className="font-medium text-sm text-gray-900">
+                      {currentField.label || "Question Label"}
+                      {currentField.required && <span className="text-red-500 ml-1">*</span>}
+                    </div>
+                    <div className="space-y-2">
+                      {(currentField.options && currentField.options.length > 0) ? (
+                        currentField.options.map((option, index) => (
+                          <div key={index} className="flex items-start space-x-3">
+                            <input
+                              type="checkbox"
+                              disabled
+                              className="mt-0.5 h-4 w-4 rounded border-gray-300 text-blue-600"
+                            />
+                            <span className="text-sm text-gray-700 flex-1 leading-5">
+                              {option}
+                            </span>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="flex items-start space-x-3">
+                          <input
+                            type="checkbox"
+                            disabled
+                            className="mt-0.5 h-4 w-4 rounded border-gray-300 text-blue-600"
+                          />
+                          <span className="text-sm text-gray-500 flex-1 leading-5 italic">
+                            Add options above to see preview
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    This is how the checkbox group will appear to users
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => {
+              setShowFieldEditor(false)
+              setCurrentField(null)
+              setEditingFieldIndex(null)
+            }}>
+              Cancel
+            </Button>
+            <Button type="button" onClick={editingFieldIndex !== null ? handleSaveField : handleAddNewField}>
+              {editingFieldIndex !== null ? 'Save Changes' : 'Add Field'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   )
 
   function DashboardContent() {
@@ -1965,6 +2365,7 @@ export default function DashboardPage() {
                         </div>
                         <div className="flex items-center gap-2">
                           <Button
+                            type="button"
                             variant="ghost"
                             size="sm"
                             onClick={() => setIsEditingForm(true)}
@@ -2075,340 +2476,17 @@ export default function DashboardPage() {
 
                   {/* Form Editor */}
                   {isEditingForm && (
-                    <Card>
-                      <CardHeader>
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <CardTitle>Edit Form</CardTitle>
-                            <CardDescription>Customize your feedback form</CardDescription>
-                          </div>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setIsEditingForm(false)}
-                          >
-                            <X className="h-4 w-4 mr-2" />
-                            Close Editor
-                          </Button>
-                        </div>
-                      </CardHeader>
-                      <CardContent className="space-y-4">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div>
-                            <Label htmlFor="form-title">Form Title</Label>
-                            <Input
-                              id="form-title"
-                              value={formTitle}
-                              onChange={(e) => setFormTitle(e.target.value)}
-                              placeholder="Enter form title"
-                            />
-                          </div>
-                          <div>
-                            <Label htmlFor="form-description">Form Description</Label>
-                            <Input
-                              id="form-description"
-                              value={formDescription}
-                              onChange={(e) => setFormDescription(e.target.value)}
-                              placeholder="Enter form description"
-                            />
-                          </div>
-                        </div>
-
-                        <div>
-                          <h4 className="font-medium mb-3">Form Fields</h4>
-                          <DragDropContext onDragEnd={handleDragEnd}>
-                            <Droppable droppableId="form-fields">
-                              {(provided, snapshot) => (
-                                <div
-                                  {...provided.droppableProps}
-                                  ref={provided.innerRef}
-                                  className={`space-y-3 ${snapshot.isDraggingOver ? 'bg-blue-50 rounded-lg p-2' : ''}`}
-                                >
-                                  {formFields.map((field, index) => (
-                                    <Draggable key={field.id} draggableId={field.id} index={index}>
-                                      {(provided, snapshot) => (
-                                        <Card
-                                          ref={provided.innerRef}
-                                          {...provided.draggableProps}
-                                          className={`p-4 transition-all duration-200 ${
-                                            snapshot.isDragging
-                                              ? 'shadow-lg rotate-2 bg-white border-blue-300'
-                                              : 'hover:shadow-md'
-                                          }`}
-                                        >
-                                          <div className="flex items-center justify-between">
-                                            <div className="flex items-center gap-3 flex-1">
-                                              {/* Drag Handle */}
-                                              <div
-                                                {...provided.dragHandleProps}
-                                                className="cursor-grab active:cursor-grabbing p-1 hover:bg-gray-100 rounded"
-                                              >
-                                                <GripVertical className="h-4 w-4 text-gray-400" />
-                                              </div>
-
-                                              <div className="flex-1">
-                                                <div className="flex items-center gap-2 mb-2">
-                                                  <span className="text-sm font-medium capitalize">
-                                                    {field.type}
-                                                  </span>
-                                                  {field.required && (
-                                                    <span className="text-xs bg-red-100 text-red-600 px-2 py-1 rounded">
-                                                      Required
-                                                    </span>
-                                                  )}
-                                                </div>
-                                                <p className="text-sm text-gray-600">{field.label}</p>
-                                                {field.type === 'checkbox' && field.options && (
-                                                  <p className="text-xs text-gray-400 mt-1">
-                                                    Checkbox options: {field.options.join(", ")}
-                                                  </p>
-                                                )}
-                                                {field.type === 'select' && field.options && (
-                                                  <p className="text-xs text-gray-400 mt-1">
-                                                    Select options: {field.options.join(", ")}
-                                                  </p>
-                                                )}
-                                                {field.type !== 'checkbox' && field.type !== 'select' && field.placeholder && (
-                                                  <p className="text-xs text-gray-400 mt-1">
-                                                    Placeholder: {field.placeholder}
-                                                  </p>
-                                                )}
-                                              </div>
-                                            </div>
-
-                                            <div className="flex items-center gap-2">
-                                              <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                onClick={() => handleEditField(index)}
-                                              >
-                                                <Edit className="h-4 w-4" />
-                                              </Button>
-                                              <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                onClick={() => {
-                                                  const newFields = formFields.filter((_, i) => i !== index)
-                                                  setFormFields(newFields)
-                                                }}
-                                              >
-                                                <Trash2 className="h-4 w-4" />
-                                              </Button>
-                                            </div>
-                                          </div>
-                                        </Card>
-                                      )}
-                                    </Draggable>
-                                  ))}
-                                  {provided.placeholder}
-                                </div>
-                              )}
-                            </Droppable>
-                          </DragDropContext>
-                        </div>
-
-                        <div className="flex justify-between">
-                          <Button
-                            variant="outline"
-                            className="gap-2"
-                            onClick={handleAddField}
-                          >
-                            <Plus className="h-4 w-4" />
-                            Add Field
-                          </Button>
-                          <div className="flex gap-2">
-                            <Button variant="outline" onClick={() => setIsEditingForm(false)}>
-                              Cancel
-                            </Button>
-                            <Button
-                              className="gap-2"
-                              onClick={handleSaveForm}
-                              disabled={isSavingForm}
-                            >
-                              {isSavingForm ? (
-                                <LoadingSpinner size="sm" />
-                              ) : (
-                                <Save className="h-4 w-4" />
-                              )}
-                              {isSavingForm ? 'Saving...' : 'Save Form'}
-                            </Button>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
+                    <IsolatedFormEditor
+                      initialTitle={formTitle}
+                      initialDescription={formDescription}
+                      initialFields={formFields}
+                      onSave={handleSaveForm}
+                      onCancel={() => setIsEditingForm(false)}
+                      isSaving={isSavingForm}
+                    />
                   )}
 
-                  {/* Field Editor Modal */}
-                  <Dialog open={showFieldEditor} onOpenChange={setShowFieldEditor}>
-                    <DialogContent className="max-w-2xl">
-                      <DialogHeader>
-                        <DialogTitle>
-                          {editingFieldIndex !== null ? 'Edit Field' : 'Add New Field'}
-                        </DialogTitle>
-                        <DialogDescription>
-                          Configure the field properties below.
-                        </DialogDescription>
-                      </DialogHeader>
-
-                      {currentField && (
-                        <div className="space-y-4">
-                          <div className="grid grid-cols-2 gap-4">
-                            <div>
-                              <Label htmlFor="field-type">Field Type</Label>
-                              <Select
-                                value={currentField.type}
-                                onValueChange={handleFieldTypeChange}
-                              >
-                                <SelectTrigger>
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="text">Text</SelectItem>
-                                  <SelectItem value="email">Email</SelectItem>
-                                  <SelectItem value="textarea">Textarea</SelectItem>
-                                  <SelectItem value="rating">Rating</SelectItem>
-                                  <SelectItem value="select">Select</SelectItem>
-                                  <SelectItem value="checkbox">Checkbox</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            </div>
-
-                            <div className="flex items-center space-x-2">
-                              <Switch
-                                id="field-required"
-                                checked={currentField.required}
-                                onCheckedChange={(checked) =>
-                                  setCurrentField({ ...currentField, required: checked })
-                                }
-                              />
-                              <Label htmlFor="field-required">Required</Label>
-                            </div>
-                          </div>
-
-                          <div>
-                            <Label htmlFor="field-label">Field Label</Label>
-                            <Input
-                              id="field-label"
-                              value={currentField.label}
-                              onChange={(e) =>
-                                setCurrentField({ ...currentField, label: e.target.value })
-                              }
-                              placeholder="Enter field label"
-                            />
-                          </div>
-
-                          {currentField.type === 'checkbox' ? (
-                            <div>
-                              <Label htmlFor="checkbox-options">Checkbox Options (one per line)</Label>
-                              <Textarea
-                                id="checkbox-options"
-                                value={currentField.options?.join('\n') || ''}
-                                onChange={(e) => {
-                                  const lines = e.target.value.split('\n')
-                                  setCurrentField({
-                                    ...currentField,
-                                    options: lines
-                                  })
-                                }}
-                                placeholder="Option 1&#10;Option 2&#10;Option 3"
-                                rows={4}
-                                className="font-mono"
-                              />
-                              <p className="text-xs text-gray-500 mt-1">
-                                Each line will become a separate checkbox option. Empty lines will be ignored when saving.
-                              </p>
-                            </div>
-                          ) : (
-                            <div>
-                              <Label htmlFor="field-placeholder">Placeholder (Optional)</Label>
-                              <Input
-                                id="field-placeholder"
-                                value={currentField.placeholder || ''}
-                                onChange={(e) =>
-                                  setCurrentField({ ...currentField, placeholder: e.target.value })
-                                }
-                                placeholder="Enter placeholder text"
-                              />
-                            </div>
-                          )}
-
-                          {currentField.type === 'select' && (
-                            <div>
-                              <Label htmlFor="field-options">Select Options (one per line)</Label>
-                              <Textarea
-                                id="field-options"
-                                value={currentField.options?.join('\n') || ''}
-                                onChange={(e) => {
-                                  const lines = e.target.value.split('\n')
-                                  setCurrentField({
-                                    ...currentField,
-                                    options: lines
-                                  })
-                                }}
-                                placeholder="Option 1&#10;Option 2&#10;Option 3"
-                                rows={4}
-                                className="font-mono"
-                              />
-                              <p className="text-xs text-gray-500 mt-1">
-                                Each line will become a separate select option. Empty lines will be ignored when saving.
-                              </p>
-                            </div>
-                          )}
-
-                          {currentField.type === 'checkbox' && (
-                            <div>
-                              <Label>Preview</Label>
-                              <div className="p-4 border border-gray-200 rounded-lg bg-gray-50 space-y-3">
-                                <div className="font-medium text-sm text-gray-900">
-                                  {currentField.label || "Question Label"}
-                                  {currentField.required && <span className="text-red-500 ml-1">*</span>}
-                                </div>
-                                <div className="space-y-2">
-                                  {(currentField.options && currentField.options.length > 0) ? (
-                                    currentField.options.map((option, index) => (
-                                      <div key={index} className="flex items-start space-x-3">
-                                        <input
-                                          type="checkbox"
-                                          disabled
-                                          className="mt-0.5 h-4 w-4 rounded border-gray-300 text-blue-600"
-                                        />
-                                        <span className="text-sm text-gray-700 flex-1 leading-5">
-                                          {option}
-                                        </span>
-                                      </div>
-                                    ))
-                                  ) : (
-                                    <div className="flex items-start space-x-3">
-                                      <input
-                                        type="checkbox"
-                                        disabled
-                                        className="mt-0.5 h-4 w-4 rounded border-gray-300 text-blue-600"
-                                      />
-                                      <span className="text-sm text-gray-500 flex-1 leading-5 italic">
-                                        Add options above to see preview
-                                      </span>
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                              <p className="text-xs text-gray-500 mt-1">
-                                This is how the checkbox group will appear to users
-                              </p>
-                            </div>
-                          )}
-                        </div>
-                      )}
-
-                      <DialogFooter>
-                        <Button variant="outline" onClick={() => setShowFieldEditor(false)}>
-                          Cancel
-                        </Button>
-                        <Button onClick={editingFieldIndex !== null ? handleSaveField : handleAddNewField}>
-                          {editingFieldIndex !== null ? 'Save Changes' : 'Add Field'}
-                        </Button>
-                      </DialogFooter>
-                    </DialogContent>
-                  </Dialog>
+                  {/* Field Editor Modal moved to top-level to prevent remounts */}
                 </div>
 
                 {/* Right Panel - Live Preview */}
@@ -2433,7 +2511,7 @@ export default function DashboardPage() {
                               src={`/${data.business.slug}?preview=true`}
                               className="w-full h-full border-0"
                               title="Form Preview"
-                              key={`preview-${formFields.length}-${formTitle}-${previewEnabled}`}
+                              key={`preview-${previewRefreshKey}`}
                             />
                           </CardContent>
                         </Card>

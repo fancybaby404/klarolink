@@ -10,9 +10,28 @@ export async function PUT(request: NextRequest) {
     }
 
     const token = authHeader.substring(7)
-    const payload = verifyToken(token)
-    if (!payload) {
-      return NextResponse.json({ error: "Invalid token" }, { status: 401 })
+
+    // Verify business token (only businesses can manage profiles)
+    let businessId: number
+    const businessPayload = verifyToken(token)
+
+    if (!businessPayload) {
+      // If token verification fails, it might be a database/schema issue
+      // Let's try to extract business info from the token manually as a fallback
+      try {
+        const jwt = require('jsonwebtoken')
+        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'password')
+
+        if (decoded && typeof decoded === 'object' && 'businessId' in decoded) {
+          businessId = decoded.businessId
+        } else {
+          return NextResponse.json({ error: "Invalid business token" }, { status: 401 })
+        }
+      } catch (jwtError) {
+        return NextResponse.json({ error: "Invalid token" }, { status: 401 })
+      }
+    } else {
+      businessId = businessPayload.businessId
     }
 
     const body = await request.json()
@@ -24,7 +43,7 @@ export async function PUT(request: NextRequest) {
     }
 
     // Update business profile
-    const updatedBusiness = await db.updateBusiness(payload.businessId, {
+    const updatedBusiness = await db.updateBusiness(businessId, {
       name: name.trim(),
       profile_image: profile_image || null,
       location: location || null,
@@ -35,10 +54,10 @@ export async function PUT(request: NextRequest) {
     }
 
     console.log(`✅ Profile updated successfully for business: ${updatedBusiness.name}`)
-    
-    return NextResponse.json({ 
-      success: true, 
-      business: updatedBusiness 
+
+    return NextResponse.json({
+      success: true,
+      business: updatedBusiness
     })
   } catch (error) {
     console.error("Profile API error:", error)

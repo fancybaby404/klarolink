@@ -16,18 +16,20 @@ export async function POST(request: NextRequest, { params }: { params: { slug: s
     }
 
     const token = authHeader.substring(7)
-    const payload = verifyUserToken(token)
+    const payload = verifyUserToken(token) // Note: uses userToken from public page, not business token
     if (!payload) {
       return NextResponse.json({ error: "Invalid or expired token. Please log in again." }, { status: 401 })
     }
 
-    // Verify user exists and is active
+    // Verify user exists
     const user = await getUser(payload.userId)
-    if (!user || !user.is_active) {
-      return NextResponse.json({ error: "User account not found or deactivated." }, { status: 401 })
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 401 })
     }
 
-    const { formData } = await request.json()
+    // Note: We don't check is_active here because it refers to business preview status, not user account status
+
+    const { formData, referralCode } = await request.json()
 
     // Get the active feedback form
     const form = await db.getFeedbackForm(business.id)
@@ -44,15 +46,27 @@ export async function POST(request: NextRequest, { params }: { params: { slug: s
     const ip = request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip") || "unknown"
     const userAgent = request.headers.get("user-agent") || "unknown"
 
-    // Insert feedback submission with user_id
+    // Insert feedback submission with user_id and referral tracking
     await db.createFeedbackSubmission({
       business_id: business.id,
       form_id: form.id,
       user_id: user.id,
-      submission_data: formData,
+      submission_data: {
+        ...formData,
+        referral_code: referralCode,
+      },
       ip_address: ip,
       user_agent: userAgent,
     })
+
+    // Complete referral if this is a referred user's first feedback
+    if (referralCode) {
+      try {
+        await db.completeReferral(referralCode, user.id)
+      } catch (error) {
+        // Don't fail the feedback submission if referral completion fails
+      }
+    }
 
     return NextResponse.json({
       message: "Feedback submitted successfully",

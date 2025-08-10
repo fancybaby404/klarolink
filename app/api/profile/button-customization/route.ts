@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { verifyUserToken, getUser, getUserBusinessAccess } from "@/lib/auth"
+import { verifyToken } from "@/lib/auth"
 import { db } from "@/lib/database-adapter"
 
 export async function PUT(request: NextRequest) {
@@ -11,25 +11,14 @@ export async function PUT(request: NextRequest) {
     }
 
     const token = authHeader.substring(7)
-    const payload = verifyUserToken(token)
-    if (!payload) {
-      return NextResponse.json({ error: "Invalid or expired token" }, { status: 401 })
+
+    // Verify business token (only businesses can manage button customization)
+    const businessPayload = verifyToken(token)
+    if (!businessPayload) {
+      return NextResponse.json({ error: "Invalid business token" }, { status: 401 })
     }
 
-    // Verify user exists and is active
-    const user = await getUser(payload.userId)
-    if (!user || !user.is_active) {
-      return NextResponse.json({ error: "User account not found or deactivated" }, { status: 401 })
-    }
-
-    // Get user's businesses
-    const businesses = await getUserBusinessAccess(user.id)
-    if (businesses.length === 0) {
-      return NextResponse.json({ error: "No business access found" }, { status: 403 })
-    }
-
-    // For now, use the first business (in a real app, you'd specify which business)
-    const business = businesses[0]
+    const businessId = businessPayload.businessId
 
     const { submit_button_color, submit_button_text_color, submit_button_hover_color } = await request.json()
 
@@ -49,7 +38,7 @@ export async function PUT(request: NextRequest) {
     }
 
     // Update business with button customization
-    const updatedBusiness = await db.updateBusiness(business.id, {
+    const updatedBusiness = await db.updateBusiness(businessId, {
       submit_button_color,
       submit_button_text_color,
       submit_button_hover_color,
@@ -59,7 +48,7 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: "Failed to update button customization" }, { status: 500 })
     }
 
-    console.log(`✅ Button customization updated for business: ${business.name}`)
+    console.log(`✅ Button customization updated for business: ${updatedBusiness.name}`)
 
     return NextResponse.json({
       message: "Button customization updated successfully",

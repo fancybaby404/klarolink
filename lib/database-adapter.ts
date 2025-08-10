@@ -46,13 +46,30 @@ const mockBusinesses: Business[] = [
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   },
+  {
+    id: 3,
+    name: "SkinBloom",
+    email: "skinbloom@gmail.com",
+    password_hash: "$2b$12$xwA7rylJIw4ytjLLlCzbQeRWYcbr9LyMth.ZWtfzrQ6GnLM52fCzy", // password123
+    profile_image: "/placeholder.svg?height=100&width=100",
+    slug: "skinbloom",
+    location: "New York, NY",
+    background_type: "color",
+    background_value: "#CC79F0",
+    submit_button_color: "#CC79F0",
+    submit_button_text_color: "#FDFFFA",
+    submit_button_hover_color: "#3E7EF7",
+    preview_enabled: true,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
 ]
 
 const mockUsers: User[] = [
   {
     id: 1,
     email: "admin@klarolink.com",
-    password_hash: "$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewdBPj/VcSforHgK",
+    password_hash: "$2b$12$xwA7rylJIw4ytjLLlCzbQeRWYcbr9LyMth.ZWtfzrQ6GnLM52fCzy", // password123
     first_name: "Admin",
     last_name: "User",
     is_active: true,
@@ -62,7 +79,7 @@ const mockUsers: User[] = [
   {
     id: 2,
     email: "demo@klarolink.com",
-    password_hash: "$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewdBPj/VcSforHgK",
+    password_hash: "$2b$12$xwA7rylJIw4ytjLLlCzbQeRWYcbr9LyMth.ZWtfzrQ6GnLM52fCzy", // password123
     first_name: "Demo",
     last_name: "User",
     is_active: true,
@@ -72,7 +89,7 @@ const mockUsers: User[] = [
   {
     id: 3,
     email: "john@example.com",
-    password_hash: "$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewdBPj/VcSforHgK",
+    password_hash: "$2b$12$xwA7rylJIw4ytjLLlCzbQeRWYcbr9LyMth.ZWtfzrQ6GnLM52fCzy", // password123
     first_name: "John",
     last_name: "Smith",
     is_active: true,
@@ -82,9 +99,19 @@ const mockUsers: User[] = [
   {
     id: 4,
     email: "sarah@example.com",
-    password_hash: "$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewdBPj/VcSforHgK",
+    password_hash: "$2b$12$xwA7rylJIw4ytjLLlCzbQeRWYcbr9LyMth.ZWtfzrQ6GnLM52fCzy", // password123
     first_name: "Sarah",
     last_name: "Johnson",
+    is_active: true,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  {
+    id: 5,
+    email: "harinacookies@gmail.com",
+    password_hash: "$2b$12$gvOzA1B4Pm4AfBjLLJzWC.Qu6cU7mCBIJiHJ5CJNPZ2b05q/OmBmK", // Original hash provided
+    first_name: "Harina",
+    last_name: "Cookies",
     is_active: true,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
@@ -103,6 +130,27 @@ const mockUserBusinessAccess: UserBusinessAccess[] = [
     id: 2,
     user_id: 2,
     business_id: 2,
+    role: "admin",
+    granted_at: new Date().toISOString(),
+  },
+  {
+    id: 3,
+    user_id: 3,
+    business_id: 1,
+    role: "admin",
+    granted_at: new Date().toISOString(),
+  },
+  {
+    id: 4,
+    user_id: 4,
+    business_id: 1,
+    role: "admin",
+    granted_at: new Date().toISOString(),
+  },
+  {
+    id: 5,
+    user_id: 5,
+    business_id: 1,
     role: "admin",
     granted_at: new Date().toISOString(),
   },
@@ -399,6 +447,18 @@ export interface DatabaseAdapter {
   getCustomerProfile(businessId: number, email: string): Promise<CustomerProfile | null>
   createOrUpdateCustomerProfile(businessId: number, email: string, data: Partial<CustomerProfile>): Promise<CustomerProfile>
   getCustomerSegments(businessId: number): Promise<CustomerSegment[]>
+
+  // Referral and Gamification System
+  createReferral(referrerUserId: number, businessId: number, referredEmail: string): Promise<{ referralCode: string; id: number }>
+  getReferralByCode(referralCode: string): Promise<any>
+  completeReferral(referralCode: string, referredUserId: number): Promise<void>
+  getUserPoints(userId: number, businessId: number): Promise<{ balance: number; totalEarned: number }>
+  getUserBadges(userId: number, businessId: number): Promise<any[]>
+  getGamificationSettings(businessId: number): Promise<any>
+  updateGamificationSettings(businessId: number, settings: any): Promise<void>
+  getUserReferrals(userId: number, businessId: number): Promise<any[]>
+  trackSocialShare(userId: number | null, businessId: number, platform: string, url: string, referralCode?: string): Promise<void>
+  getLeaderboard(businessId: number, type: 'points' | 'referrals', limit?: number): Promise<any[]>
 
   // User authentication operations
   getUser(id: number): Promise<User | null>
@@ -853,6 +913,144 @@ class MockDatabaseAdapter implements DatabaseAdapter {
   async getCustomerSegments(businessId: number): Promise<CustomerSegment[]> {
     return mockCustomerSegments.filter(segment => segment.business_id === businessId)
   }
+
+  // Referral and Gamification System Implementation
+  async createReferral(referrerUserId: number, businessId: number, referredEmail: string): Promise<{ referralCode: string; id: number }> {
+    const referralCode = 'REF' + Math.random().toString(36).substr(2, 8).toUpperCase()
+    const referral = {
+      id: Math.max(...this.mockReferrals.map(r => r.id), 0) + 1,
+      referrer_user_id: referrerUserId,
+      business_id: businessId,
+      referred_email: referredEmail,
+      referral_code: referralCode,
+      status: 'pending',
+      created_at: new Date().toISOString(),
+      expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() // 30 days
+    }
+    this.mockReferrals.push(referral)
+    return { referralCode, id: referral.id }
+  }
+
+  async getReferralByCode(referralCode: string): Promise<any> {
+    return this.mockReferrals.find(r => r.referral_code === referralCode) || null
+  }
+
+  async completeReferral(referralCode: string, referredUserId: number): Promise<void> {
+    const referral = this.mockReferrals.find(r => r.referral_code === referralCode)
+    if (referral && referral.status === 'pending') {
+      referral.status = 'completed'
+      referral.referred_user_id = referredUserId
+      referral.completed_at = new Date().toISOString()
+
+      // Award points to both referrer and referred user
+      await this.awardPoints(referral.referrer_user_id, referral.business_id, 50, 'Successful referral')
+      await this.awardPoints(referredUserId, referral.business_id, 25, 'Welcome bonus from referral')
+    }
+  }
+
+  async getUserPoints(userId: number, businessId: number): Promise<{ balance: number; totalEarned: number }> {
+    const userPoints = this.mockUserPoints.find(p => p.user_id === userId && p.business_id === businessId)
+    return {
+      balance: userPoints?.points_balance || 0,
+      totalEarned: userPoints?.total_points_earned || 0
+    }
+  }
+
+  async getUserBadges(userId: number, businessId: number): Promise<any[]> {
+    return this.mockUserBadges.filter(b => b.user_id === userId && b.business_id === businessId)
+  }
+
+  async getGamificationSettings(businessId: number): Promise<any> {
+    return this.mockGamificationSettings.find(s => s.business_id === businessId) || {
+      business_id: businessId,
+      points_per_feedback: 10,
+      points_per_referral: 50,
+      welcome_bonus_points: 25,
+      gamification_enabled: true,
+      referral_enabled: true
+    }
+  }
+
+  async updateGamificationSettings(businessId: number, settings: any): Promise<void> {
+    const index = this.mockGamificationSettings.findIndex(s => s.business_id === businessId)
+    if (index >= 0) {
+      this.mockGamificationSettings[index] = { ...this.mockGamificationSettings[index], ...settings }
+    } else {
+      this.mockGamificationSettings.push({ business_id: businessId, ...settings })
+    }
+  }
+
+  async getUserReferrals(userId: number, businessId: number): Promise<any[]> {
+    return this.mockReferrals.filter(r => r.referrer_user_id === userId && r.business_id === businessId)
+  }
+
+  async trackSocialShare(userId: number | null, businessId: number, platform: string, url: string, referralCode?: string): Promise<void> {
+    this.mockSocialShares.push({
+      id: Math.max(...this.mockSocialShares.map(s => s.id), 0) + 1,
+      user_id: userId,
+      business_id: businessId,
+      platform,
+      shared_url: url,
+      referral_code: referralCode,
+      shared_at: new Date().toISOString()
+    })
+  }
+
+  async getLeaderboard(businessId: number, type: 'points' | 'referrals', limit = 10): Promise<any[]> {
+    if (type === 'points') {
+      return this.mockUserPoints
+        .filter(p => p.business_id === businessId)
+        .sort((a, b) => b.total_points_earned - a.total_points_earned)
+        .slice(0, limit)
+        .map(p => ({
+          user_id: p.user_id,
+          total_points: p.total_points_earned,
+          user_name: `User ${p.user_id}`
+        }))
+    } else {
+      const referralCounts = this.mockReferrals
+        .filter(r => r.business_id === businessId && r.status === 'completed')
+        .reduce((acc, r) => {
+          acc[r.referrer_user_id] = (acc[r.referrer_user_id] || 0) + 1
+          return acc
+        }, {} as Record<number, number>)
+
+      return Object.entries(referralCounts)
+        .sort(([,a], [,b]) => b - a)
+        .slice(0, limit)
+        .map(([userId, count]) => ({
+          user_id: parseInt(userId),
+          referral_count: count,
+          user_name: `User ${userId}`
+        }))
+    }
+  }
+
+  private async awardPoints(userId: number, businessId: number, points: number, reason: string): Promise<void> {
+    const userPoints = this.mockUserPoints.find(p => p.user_id === userId && p.business_id === businessId)
+    if (userPoints) {
+      userPoints.points_balance += points
+      userPoints.total_points_earned += points
+    } else {
+      this.mockUserPoints.push({
+        id: Math.max(...this.mockUserPoints.map(p => p.id), 0) + 1,
+        user_id: userId,
+        business_id: businessId,
+        points_balance: points,
+        total_points_earned: points,
+        total_points_redeemed: 0,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })
+    }
+  }
+
+  // Mock data arrays for referral system
+  private mockReferrals: any[] = []
+  private mockUserPoints: any[] = []
+  private mockUserBadges: any[] = []
+  private mockGamificationSettings: any[] = []
+  private mockSocialShares: any[] = []
 
   // User authentication methods
   async getUser(id: number): Promise<User | null> {
@@ -1396,6 +1594,205 @@ class NeonDatabaseAdapter implements DatabaseAdapter {
     }
   }
 
+  // Referral and Gamification System - PostgreSQL Implementation
+  async createReferral(referrerUserId: number, businessId: number, referredEmail: string): Promise<{ referralCode: string; id: number }> {
+    try {
+      const result = await this.query(`
+        INSERT INTO referrals (referrer_user_id, business_id, referred_email, referral_code, expires_at)
+        VALUES ($1, $2, $3, generate_referral_code(), NOW() + INTERVAL '30 days')
+        RETURNING id, referral_code
+      `, [referrerUserId, businessId, referredEmail])
+
+      return {
+        referralCode: result[0].referral_code,
+        id: result[0].id
+      }
+    } catch (error) {
+      return mockDatabaseAdapter.createReferral(referrerUserId, businessId, referredEmail)
+    }
+  }
+
+  async getReferralByCode(referralCode: string): Promise<any> {
+    try {
+      const result = await this.query(`
+        SELECT * FROM referrals WHERE referral_code = $1
+      `, [referralCode])
+
+      return result[0] || null
+    } catch (error) {
+      return mockDatabaseAdapter.getReferralByCode(referralCode)
+    }
+  }
+
+  async completeReferral(referralCode: string, referredUserId: number): Promise<void> {
+    try {
+      await this.query(`
+        UPDATE referrals
+        SET status = 'completed', referred_user_id = $1, completed_at = NOW()
+        WHERE referral_code = $2 AND status = 'pending'
+      `, [referredUserId, referralCode])
+
+      // Award points using the database function
+      const referral = await this.getReferralByCode(referralCode)
+      if (referral) {
+        const settings = await this.getGamificationSettings(referral.business_id)
+        await this.query(`
+          SELECT award_points($1, $2, $3, 'Successful referral', $4, 'referral')
+        `, [referral.referrer_user_id, referral.business_id, settings.points_per_referral, referral.id])
+
+        await this.query(`
+          SELECT award_points($1, $2, $3, 'Welcome bonus from referral', $4, 'referral')
+        `, [referredUserId, referral.business_id, settings.welcome_bonus_points, referral.id])
+      }
+    } catch (error) {
+      return mockDatabaseAdapter.completeReferral(referralCode, referredUserId)
+    }
+  }
+
+  async getUserPoints(userId: number, businessId: number): Promise<{ balance: number; totalEarned: number }> {
+    try {
+      const result = await this.query(`
+        SELECT points_balance, total_points_earned
+        FROM user_points
+        WHERE user_id = $1 AND business_id = $2
+      `, [userId, businessId])
+
+      return {
+        balance: result[0]?.points_balance || 0,
+        totalEarned: result[0]?.total_points_earned || 0
+      }
+    } catch (error) {
+      return mockDatabaseAdapter.getUserPoints(userId, businessId)
+    }
+  }
+
+  async getUserBadges(userId: number, businessId: number): Promise<any[]> {
+    try {
+      const result = await this.query(`
+        SELECT * FROM user_badges
+        WHERE user_id = $1 AND business_id = $2
+        ORDER BY earned_at DESC
+      `, [userId, businessId])
+
+      return result
+    } catch (error) {
+      return mockDatabaseAdapter.getUserBadges(userId, businessId)
+    }
+  }
+
+  async getGamificationSettings(businessId: number): Promise<any> {
+    try {
+      const result = await this.query(`
+        SELECT * FROM gamification_settings WHERE business_id = $1
+      `, [businessId])
+
+      return result[0] || {
+        business_id: businessId,
+        points_per_feedback: 10,
+        points_per_referral: 50,
+        welcome_bonus_points: 25,
+        gamification_enabled: true,
+        referral_enabled: true
+      }
+    } catch (error) {
+      return mockDatabaseAdapter.getGamificationSettings(businessId)
+    }
+  }
+
+  async updateGamificationSettings(businessId: number, settings: any): Promise<void> {
+    try {
+      await this.query(`
+        INSERT INTO gamification_settings (business_id, points_per_feedback, points_per_referral, welcome_bonus_points, gamification_enabled, referral_enabled)
+        VALUES ($1, $2, $3, $4, $5, $6)
+        ON CONFLICT (business_id)
+        DO UPDATE SET
+          points_per_feedback = $2,
+          points_per_referral = $3,
+          welcome_bonus_points = $4,
+          gamification_enabled = $5,
+          referral_enabled = $6,
+          updated_at = NOW()
+      `, [
+        businessId,
+        settings.points_per_feedback,
+        settings.points_per_referral,
+        settings.welcome_bonus_points,
+        settings.gamification_enabled,
+        settings.referral_enabled
+      ])
+    } catch (error) {
+      return mockDatabaseAdapter.updateGamificationSettings(businessId, settings)
+    }
+  }
+
+  async getUserReferrals(userId: number, businessId: number): Promise<any[]> {
+    try {
+      const result = await this.query(`
+        SELECT r.*, u.first_name, u.last_name, u.email as referred_user_email
+        FROM referrals r
+        LEFT JOIN users u ON r.referred_user_id = u.id
+        WHERE r.referrer_user_id = $1 AND r.business_id = $2
+        ORDER BY r.created_at DESC
+      `, [userId, businessId])
+
+      return result
+    } catch (error) {
+      return mockDatabaseAdapter.getUserReferrals(userId, businessId)
+    }
+  }
+
+  async trackSocialShare(userId: number | null, businessId: number, platform: string, url: string, referralCode?: string): Promise<void> {
+    try {
+      await this.query(`
+        INSERT INTO social_shares (user_id, business_id, platform, shared_url, referral_code)
+        VALUES ($1, $2, $3, $4, $5)
+      `, [userId, businessId, platform, url, referralCode])
+    } catch (error) {
+      return mockDatabaseAdapter.trackSocialShare(userId, businessId, platform, url, referralCode)
+    }
+  }
+
+  async getLeaderboard(businessId: number, type: 'points' | 'referrals', limit = 10): Promise<any[]> {
+    try {
+      if (type === 'points') {
+        const result = await this.query(`
+          SELECT up.user_id, up.total_points_earned as total_points,
+                 u.first_name, u.last_name, u.email
+          FROM user_points up
+          JOIN users u ON up.user_id = u.id
+          WHERE up.business_id = $1
+          ORDER BY up.total_points_earned DESC
+          LIMIT $2
+        `, [businessId, limit])
+
+        return result.map(r => ({
+          user_id: r.user_id,
+          total_points: r.total_points_earned,
+          user_name: `${r.first_name} ${r.last_name}`.trim() || r.email
+        }))
+      } else {
+        const result = await this.query(`
+          SELECT r.referrer_user_id as user_id, COUNT(*) as referral_count,
+                 u.first_name, u.last_name, u.email
+          FROM referrals r
+          JOIN users u ON r.referrer_user_id = u.id
+          WHERE r.business_id = $1 AND r.status = 'completed'
+          GROUP BY r.referrer_user_id, u.first_name, u.last_name, u.email
+          ORDER BY referral_count DESC
+          LIMIT $2
+        `, [businessId, limit])
+
+        return result.map(r => ({
+          user_id: r.user_id,
+          referral_count: parseInt(r.referral_count),
+          user_name: `${r.first_name} ${r.last_name}`.trim() || r.email
+        }))
+      }
+    } catch (error) {
+      return mockDatabaseAdapter.getLeaderboard(businessId, type, limit)
+    }
+  }
+
   async getCustomerProfiles(businessId: number): Promise<CustomerProfile[]> {
     try {
       console.log(`👥 Getting customer profiles for business ID: ${businessId}`)
@@ -1444,10 +1841,18 @@ class NeonDatabaseAdapter implements DatabaseAdapter {
   async getUser(id: number): Promise<User | null> {
     try {
       console.log(`👤 Getting user by ID: ${id}`)
-      const result = await this.query("SELECT * FROM users WHERE id = $1 AND is_active = TRUE", [id])
+      // Try without is_active column first since it might not exist
+      const result = await this.query("SELECT * FROM users WHERE id = $1", [id])
+
+      if (result.length === 0) {
+        console.log(`👤 No user found in database for ID: ${id}, falling back to mock data`)
+        return mockDatabaseAdapter.getUser(id)
+      }
+
       return result[0] || null
     } catch (error) {
       console.error("❌ Database error in getUser:", error)
+      console.log(`👤 Falling back to mock data for user ID: ${id}`)
       return mockDatabaseAdapter.getUser(id)
     }
   }
@@ -1455,10 +1860,49 @@ class NeonDatabaseAdapter implements DatabaseAdapter {
   async getUserByEmail(email: string): Promise<User | null> {
     try {
       console.log(`👤 Getting user by email: ${email}`)
-      const result = await this.query("SELECT * FROM users WHERE email = $1 AND is_active = TRUE", [email])
-      return result[0] || null
+
+      // First try with email column
+      try {
+        let result = await this.query("SELECT * FROM users WHERE email = $1", [email])
+        if (result.length > 0) {
+          console.log(`✅ Found user with email column`)
+          return result[0]
+        }
+        console.log(`👤 No user found with email column`)
+      } catch (emailColumnError: any) {
+        console.log(`👤 Email column query failed: ${emailColumnError.message}`)
+
+        // If it's a "column does not exist" error, try username column
+        if (emailColumnError.code === '42703') {
+          console.log(`👤 Email column doesn't exist, trying username column`)
+          try {
+            let result = await this.query("SELECT * FROM users WHERE username = $1", [email])
+            if (result.length > 0) {
+              console.log(`✅ Found user with username column`)
+              // Map username to email for compatibility
+              const user = result[0]
+              return {
+                ...user,
+                email: user.username || user.email
+              }
+            }
+            console.log(`👤 No user found with username column`)
+          } catch (usernameColumnError: any) {
+            console.log(`👤 Username column query failed: ${usernameColumnError.message}`)
+          }
+        } else {
+          // Re-throw if it's not a column missing error
+          throw emailColumnError
+        }
+      }
+
+      // If no user found in database, fall back to mock
+      console.log(`👤 No user found in database for email: ${email}, falling back to mock data`)
+      return mockDatabaseAdapter.getUserByEmail(email)
+
     } catch (error) {
       console.error("❌ Database error in getUserByEmail:", error)
+      console.log(`👤 Falling back to mock data for email: ${email}`)
       return mockDatabaseAdapter.getUserByEmail(email)
     }
   }

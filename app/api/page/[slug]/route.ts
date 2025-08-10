@@ -12,7 +12,9 @@ export async function GET(request: NextRequest, { params }: { params: { slug: st
     // Get feedback form
     const form = await db.getFeedbackForm(business.id)
     const formFields = form?.fields || []
-    const previewEnabled = form?.preview_enabled !== false // Default to true if not set
+    const formTitle = form?.title || "Share Your Experience"
+    const formDescription = form?.description || "Your feedback helps us improve our service"
+    const previewEnabled = (form as any)?.preview_enabled !== false // Default to true if not set
 
     // Get social links
     const socialLinks = await db.getSocialLinks(business.id)
@@ -20,6 +22,8 @@ export async function GET(request: NextRequest, { params }: { params: { slug: st
     return NextResponse.json({
       business,
       formFields,
+      formTitle,
+      formDescription,
       socialLinks,
       previewEnabled,
     })
