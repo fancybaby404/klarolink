@@ -323,6 +323,66 @@ export async function getUser(id: number): Promise<User | null> {
   }
 }
 
+export async function createUser(data: {
+  email: string
+  password: string
+  first_name: string
+  last_name: string
+  username?: string
+  role?: string
+}): Promise<User> {
+  try {
+    // Validate required fields
+    if (!data.email?.trim()) {
+      throw new Error("Email is required")
+    }
+    if (!data.password?.trim()) {
+      throw new Error("Password is required")
+    }
+    if (!data.first_name?.trim()) {
+      throw new Error("First name is required")
+    }
+    if (!data.last_name?.trim()) {
+      throw new Error("Last name is required")
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(data.email)) {
+      throw new Error("Invalid email format")
+    }
+
+    // Validate password length
+    if (data.password.length < 6) {
+      throw new Error("Password must be at least 6 characters long")
+    }
+
+    // Check if user already exists
+    const existingUser = await db.getUserByEmail(data.email)
+    if (existingUser) {
+      throw new Error("User with this email already exists")
+    }
+
+    // Hash password
+    const passwordHash = await hashPassword(data.password)
+
+    const userData = {
+      email: data.email,
+      username: data.username || data.email,
+      password: passwordHash,
+      first_name: data.first_name,
+      last_name: data.last_name,
+      role: data.role || 'user'
+    }
+
+    const user = await db.createUser(userData)
+    return user
+  } catch (error) {
+    console.error("❌ Error creating user:", error)
+    throw error
+  }
+}
+
 export async function getUserBusinessAccess(userId: number): Promise<Business[]> {
   try {
     const businesses = await db.getUserBusinessAccess(userId)

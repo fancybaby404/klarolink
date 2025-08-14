@@ -388,20 +388,7 @@ export default function HomePage() {
           <p className="text-xl text-white/90 mb-8 max-w-2xl mx-auto">
             Join thousands of businesses already using KlaroLink to improve their customer experience
           </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-            <div className="flex items-center gap-3">
-              <input
-                type="text"
-                placeholder="yourbusiness/"
-                className="px-4 py-3 rounded-lg border-2 border-white/20 bg-white/10 backdrop-blur-sm focus:outline-none focus:border-white text-white placeholder-white/70"
-              />
-              <Link href="/register">
-                <Button size="lg" className="bg-white text-secondary hover:bg-white/90 px-8">
-                  Claim your KlaroLink
-                </Button>
-              </Link>
-            </div>
-          </div>
+          <CTASection />
         </div>
       </section>
 
@@ -475,6 +462,59 @@ export default function HomePage() {
           </div>
         </div>
       </footer>
+    </div>
+  )
+}
+
+// CTA Section Component with business name functionality
+function CTASection() {
+  const [businessName, setBusinessName] = useState("")
+
+  const handleClaimClick = () => {
+    if (businessName.trim()) {
+      // Redirect to register page with business name pre-filled
+      window.location.href = `/register?businessName=${encodeURIComponent(businessName.trim())}`
+    } else {
+      // If no business name entered, just go to register page
+      window.location.href = "/register"
+    }
+  }
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleClaimClick()
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-4 justify-center items-center">
+      <div className="flex flex-col sm:flex-row items-center gap-3">
+        <div className="relative">
+          <input
+            type="text"
+            placeholder="yourbusiness"
+            value={businessName}
+            onChange={(e) => setBusinessName(e.target.value)}
+            onKeyPress={handleKeyPress}
+            className="px-4 py-3 pr-32 rounded-lg border-2 border-white/20 bg-white/10 backdrop-blur-sm focus:outline-none focus:border-white text-white placeholder-white/70 min-w-[280px] transition-all duration-200"
+          />
+          <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-white/70 pointer-events-none text-sm">
+            .klarolink.com
+          </span>
+        </div>
+        <Button
+          size="lg"
+          className="bg-white text-secondary hover:bg-white/90 px-8 transition-all duration-200"
+          onClick={handleClaimClick}
+        >
+          Claim your KlaroLink
+        </Button>
+      </div>
+      {businessName && (
+        <p className="text-white/80 text-sm">
+          Your link will be: <span className="font-semibold">{businessName}.klarolink.com</span>
+        </p>
+      )}
     </div>
   )
 }

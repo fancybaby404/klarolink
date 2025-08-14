@@ -540,7 +540,29 @@ export default function FeedbackPage() {
   }
 
   return (
-    <div className="min-h-screen p-4" style={backgroundStyle}>
+    <div
+      className={`min-h-screen p-4 ${isPreviewMode ? 'preview-mode' : ''}`}
+      style={backgroundStyle}
+    >
+      {isPreviewMode && (
+        <style dangerouslySetInnerHTML={{
+          __html: `
+            body, html {
+              overflow: hidden !important;
+            }
+            ::-webkit-scrollbar {
+              display: none !important;
+            }
+            * {
+              scrollbar-width: none !important;
+              -ms-overflow-style: none !important;
+            }
+            *::-webkit-scrollbar {
+              display: none !important;
+            }
+          `
+        }} />
+      )}
       <div className="max-w-md mx-auto pt-8">
         {/* Share Button - Top Right */}
         <div className="fixed top-4 right-4 z-50">

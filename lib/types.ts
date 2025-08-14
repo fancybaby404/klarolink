@@ -48,6 +48,49 @@ export interface FeedbackForm {
   updated_at: string
 }
 
+export interface Product {
+  id: number
+  business_id: number
+  name: string
+  description?: string
+  product_image?: string
+  category?: string
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface ProductPricing {
+  id: number
+  product_id: number
+  price: number
+  currency: string
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface ProductWithPricing extends Product {
+  pricing?: ProductPricing[]
+}
+
+export interface ProductReview {
+  id: number
+  product_id: number
+  user_id?: number
+  rating: number // 1-5 stars
+  comment: string
+  created_at: string
+  updated_at: string
+}
+
+export interface FormProduct {
+  id: number
+  form_id: number
+  product_id: number
+  created_at: string
+}
+
 export interface FormField {
   id: string
   type: "text" | "email" | "textarea" | "rating" | "select" | "checkbox"

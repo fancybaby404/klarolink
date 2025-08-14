@@ -17,22 +17,19 @@ export async function GET(request: NextRequest) {
 
     console.log(`👥 Getting audience data for business ID: ${payload.businessId}`)
 
-    // Get customer profiles and segments
-    const [customerProfiles, customerSegments] = await Promise.all([
-      db.getCustomerProfiles(payload.businessId),
-      db.getCustomerSegments(payload.businessId)
-    ])
+    // Get customer profiles (segments are hidden for now)
+    const customerProfiles = await db.getCustomerProfiles(payload.businessId)
+    const customerSegments = [] // Temporarily empty since segments are hidden
 
-    // Calculate segment statistics
-    const segmentStats = customerSegments.map(segment => {
-      const customersInSegment = customerProfiles.filter(customer => 
-        customer.segments.includes(segment.name.toLowerCase().replace(/\s+/g, '_'))
-      )
-      return {
-        ...segment,
-        customer_count: customersInSegment.length
-      }
+    console.log(`📊 Audience data retrieved:`, {
+      customerProfilesCount: customerProfiles.length,
+      customerEmails: customerProfiles.map(c => c.email),
+      customerNames: customerProfiles.map(c => c.name),
+      customerRatings: customerProfiles.map(c => c.average_rating)
     })
+
+    // Skip segment statistics since segments are hidden
+    const segmentStats = []
 
     // Calculate overview statistics
     const totalCustomers = customerProfiles.length
