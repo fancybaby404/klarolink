@@ -811,34 +811,45 @@ export default function ProfilePage() {
                 >
                   <div className="p-6">
                     {/* Business Header */}
-                    <div className="text-center mb-6">
-                      {profileImage && (
-                        <div className="w-16 h-16 mx-auto mb-3 rounded-full overflow-hidden border-2 border-white/20">
+                    <div className="text-center mb-8">
+                      <div className="relative inline-block">
+                        {profileImage ? (
                           <img
                             src={profileImage}
-                            alt="Business"
-                            className="w-full h-full object-cover"
+                            alt={businessName || "Business"}
+                            className="w-24 h-24 rounded-full object-cover mx-auto mb-4 border-4 border-white shadow-lg"
                             onError={(e) => {
-                              e.currentTarget.src = "/placeholder.svg?height=64&width=64"
+                              e.currentTarget.src = "/placeholder.svg?height=96&width=96"
                             }}
                           />
+                        ) : (
+                          <div className="w-24 h-24 rounded-full bg-white flex items-center justify-center mx-auto mb-4 border-4 border-white shadow-lg">
+                            <span className="text-2xl font-bold text-header">
+                              {(businessName || "B").charAt(0).toUpperCase()}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                      <h1 className="text-2xl font-bold text-white mb-2 drop-shadow-lg">
+                        {businessName || "Your Business"}
+                      </h1>
+
+                      {/* Location Display */}
+                      {location && (
+                        <div className="flex items-center justify-center gap-1 mb-2">
+                          <div className="w-1 h-1 bg-white/60 rounded-full"></div>
+                          <p className="text-white/80 text-sm drop-shadow">{location}</p>
+                          <div className="w-1 h-1 bg-white/60 rounded-full"></div>
                         </div>
                       )}
-                      <h2 className="text-xl font-bold text-white drop-shadow mb-1">
-                        {businessName || "Your Business"}
-                      </h2>
-                      {location && (
-                        <p className="text-white/90 drop-shadow text-sm flex items-center justify-center gap-1">
-                          <MapPin className="h-3 w-3" />
-                          {location}
-                        </p>
-                      )}
+
+                      <p className="text-white/90 drop-shadow">We'd love to hear your feedback!</p>
                     </div>
 
                     {/* Form Preview */}
-                    <Card className="bg-white/95 backdrop-blur-sm shadow-xl border border-white/20">
-                      <CardHeader className="pb-4">
-                        <CardTitle className="text-header text-lg">
+                    <Card className="bg-white/95 backdrop-blur-sm shadow-2xl border border-shadow">
+                      <CardHeader>
+                        <CardTitle className="text-header">
                           {data?.formTitle || 'Share Your Experience'}
                         </CardTitle>
                         <CardDescription className="text-subheader">

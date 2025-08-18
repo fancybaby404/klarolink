@@ -1,10 +1,10 @@
-import { 
-  Globe, 
-  Instagram, 
-  Twitter, 
-  Facebook, 
-  Linkedin, 
-  Youtube, 
+import {
+  Globe,
+  Instagram,
+  Twitter,
+  Facebook,
+  Linkedin,
+  Youtube,
   Github,
   Mail,
   Phone,
@@ -14,6 +14,7 @@ import {
   Camera,
   Video,
   Smartphone,
+  Building2,
   type LucideIcon
 } from "lucide-react"
 
@@ -38,13 +39,13 @@ export interface SocialPlatform {
 export const SOCIAL_PLATFORMS: Record<string, SocialPlatform> = {
   website: {
     id: 'website',
-    name: 'Other Website',
-    icon: Globe,
+    name: 'Business Website',
+    icon: Building2,
     baseUrl: '',
     urlPattern: /^https?:\/\/.+\..+/,
     placeholder: 'https://yourwebsite.com',
     description: 'Your business website or homepage',
-    category: 'more',
+    category: 'other',
     color: '#6366f1',
     validation: {
       required: true,

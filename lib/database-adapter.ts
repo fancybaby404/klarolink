@@ -64,6 +64,23 @@ const mockBusinesses: Business[] = [
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   },
+  {
+    id: 4,
+    name: "SkinBloom 2",
+    email: "skinbloom2@gmail.com",
+    password_hash: "$2b$12$xwA7rylJIw4ytjLLlCzbQeRWYcbr9LyMth.ZWtfzrQ6GnLM52fCzy", // password123
+    profile_image: "/placeholder.svg?height=100&width=100",
+    slug: "skinbloom-2",
+    location: "Los Angeles, CA",
+    background_type: "color",
+    background_value: "#FF6B9D",
+    submit_button_color: "#FF6B9D",
+    submit_button_text_color: "#FFFFFF",
+    submit_button_hover_color: "#E55A87",
+    preview_enabled: true,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
 ]
 
 const mockUsers: User[] = [
@@ -114,6 +131,40 @@ const mockUsers: User[] = [
     first_name: "Harina",
     last_name: "Cookies",
     is_active: true,
+    created_at: new Date().toISOString(),
+    registration_date: new Date().toISOString(),
+  },
+  {
+    customer_id: 3,
+    business_id: 4, // SkinBloom 2
+    first_name: "Emma",
+    last_name: "Wilson",
+    email: "emma@example.com",
+    phone_number: "555-0103",
+    password: "$2b$12$xwA7rylJIw4ytjLLlCzbQeRWYcbr9LyMth.ZWtfzrQ6GnLM52fCzy", // password123
+    address: "789 Beauty Ave, Los Angeles, CA 90210",
+    date_of_birth: "1992-08-15",
+    gender: "female",
+    customer_status: "active",
+    preferred_contact_method: "email",
+    account_created_by: 1,
+    created_at: new Date().toISOString(),
+    registration_date: new Date().toISOString(),
+  },
+  {
+    customer_id: 4,
+    business_id: 4, // SkinBloom 2
+    first_name: "David",
+    last_name: "Chen",
+    email: "david@example.com",
+    phone_number: "555-0104",
+    password: "$2b$12$xwA7rylJIw4ytjLLlCzbQeRWYcbr9LyMth.ZWtfzrQ6GnLM52fCzy", // password123
+    address: "321 Skincare Blvd, Los Angeles, CA 90211",
+    date_of_birth: "1988-12-03",
+    gender: "male",
+    customer_status: "active",
+    preferred_contact_method: "email",
+    account_created_by: 1,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   },
@@ -190,6 +241,58 @@ const mockFeedbackForms: FeedbackForm[] = [
         label: "Your Feedback",
         required: true,
         placeholder: "Tell us about your experience...",
+      },
+    ],
+    is_active: true,
+    preview_enabled: true,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  {
+    id: 4,
+    business_id: 4,
+    title: "SkinBloom Customer Feedback",
+    description: "Help us improve our skincare products and services!",
+    fields: [
+      {
+        id: "name",
+        type: "text",
+        label: "Your Name",
+        required: true,
+        placeholder: "Enter your full name",
+      },
+      {
+        id: "email",
+        type: "email",
+        label: "Email Address",
+        required: false,
+        placeholder: "your@email.com",
+      },
+      {
+        id: "rating",
+        type: "rating",
+        label: "Overall Satisfaction",
+        required: true,
+      },
+      {
+        id: "product_rating",
+        type: "rating",
+        label: "Product Quality",
+        required: true,
+      },
+      {
+        id: "feedback",
+        type: "textarea",
+        label: "Your Experience",
+        required: true,
+        placeholder: "Tell us about your experience with our products...",
+      },
+      {
+        id: "recommend",
+        type: "select",
+        label: "Would you recommend us?",
+        required: false,
+        options: ["Yes, definitely", "Maybe", "No, probably not"],
       },
     ],
     is_active: true,
@@ -1556,15 +1659,32 @@ class NeonDatabaseAdapter implements DatabaseAdapter {
       console.log("📝 Creating feedback submission:", {
         business_id: data.business_id,
         form_id: data.form_id,
+        user_id: data.user_id,
         submission_data: data.submission_data,
         ip_address: data.ip_address
       })
 
-      const result = await this.query(
-        `INSERT INTO feedback_submissions (business_id, form_id, submission_data, ip_address, user_agent)
-         VALUES ($1, $2, $3, $4, $5) RETURNING *`,
-        [data.business_id, data.form_id, JSON.stringify(data.submission_data), data.ip_address, data.user_agent],
-      )
+      // First try with user_id column (newer schema)
+      let result
+      try {
+        result = await this.query(
+          `INSERT INTO feedback_submissions (business_id, form_id, user_id, submission_data, ip_address, user_agent)
+           VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+          [data.business_id, data.form_id, data.user_id, JSON.stringify(data.submission_data), data.ip_address, data.user_agent],
+        )
+      } catch (columnError: any) {
+        // If user_id column doesn't exist, fall back to original schema
+        if (columnError.code === '42703') { // Column does not exist
+          console.log("📝 user_id column doesn't exist, using fallback schema")
+          result = await this.query(
+            `INSERT INTO feedback_submissions (business_id, form_id, submission_data, ip_address, user_agent)
+             VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+            [data.business_id, data.form_id, JSON.stringify(data.submission_data), data.ip_address, data.user_agent],
+          )
+        } else {
+          throw columnError
+        }
+      }
 
       console.log("✅ Feedback submission created successfully:", result[0])
 
@@ -1624,6 +1744,8 @@ class NeonDatabaseAdapter implements DatabaseAdapter {
         "SELECT submission_data FROM feedback_submissions WHERE business_id = $1",
         [businessId],
       )
+
+      console.log(`📊 Found ${feedbackSubmissions.length} feedback submissions for business ${businessId}`)
 
       const analyticsResult = await this.query(
         "SELECT event_type, COUNT(*) as count FROM analytics_events WHERE business_id = $1 GROUP BY event_type",
@@ -1709,6 +1831,20 @@ class NeonDatabaseAdapter implements DatabaseAdapter {
     try {
       console.log(`📊 Getting detailed insights for business ID: ${businessId}`)
 
+      // Get all feedback submissions first to check if we have data
+      const allSubmissions = await this.query(
+        "SELECT * FROM feedback_submissions WHERE business_id = $1 ORDER BY submitted_at DESC",
+        [businessId]
+      )
+
+      console.log(`📊 Found ${allSubmissions.length} total submissions for business ${businessId}`)
+
+      // If no submissions, fall back to mock data
+      if (allSubmissions.length === 0) {
+        console.log(`📊 No submissions found, falling back to mock data for business ${businessId}`)
+        return mockDatabaseAdapter.getDetailedInsights(businessId)
+      }
+
       // Get submission trends (last 7 days)
       const trendsResult = await this.query(`
         SELECT DATE(submitted_at) as date, COUNT(*) as count
@@ -1717,6 +1853,8 @@ class NeonDatabaseAdapter implements DatabaseAdapter {
         GROUP BY DATE(submitted_at)
         ORDER BY date
       `, [businessId])
+
+      console.log(`📊 Trends query returned ${trendsResult.length} days of data`)
 
       // Get all submissions for field analysis
       const submissionsResult = await this.query(

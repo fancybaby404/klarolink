@@ -101,11 +101,21 @@ export async function POST(request: NextRequest, { params }: { params: { slug: s
     return NextResponse.json({
       message: "Feedback submitted successfully",
       submitter: {
-        name: `${user.first_name} ${user.last_name}`.trim(),
-        email: user.email,
+        name: customer
+          ? `${customer.first_name} ${customer.last_name}`.trim()
+          : user
+            ? `${user.first_name} ${user.last_name}`.trim()
+            : "Unknown",
+        email: customer ? customer.email : user?.email || "unknown",
       },
     })
   } catch (error) {
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    console.error("❌ Feedback submission error:", error)
+    console.error("❌ Error details:", error instanceof Error ? error.message : 'Unknown error')
+    console.error("❌ Error stack:", error instanceof Error ? error.stack : 'No stack trace')
+    return NextResponse.json({
+      error: "Internal server error",
+      details: error instanceof Error ? error.message : 'Unknown error'
+    }, { status: 500 })
   }
 }

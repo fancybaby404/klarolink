@@ -26,7 +26,7 @@ export function LivePreview({
 }: LivePreviewProps) {
   // Get the current origin to handle dynamic ports
   const currentOrigin = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000'
-  const previewUrl = `${currentOrigin}/skinbloom-2`
+  const previewUrl = `${currentOrigin}/${businessSlug}`
 
   const handlePreviewForm = () => {
     window.open(previewUrl, '_blank')

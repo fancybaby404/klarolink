@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts'
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar } from 'recharts'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import {
@@ -228,9 +228,11 @@ export function InsightsTab({ data }: InsightsTabProps) {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-600">Total Submissions</p>
-                  <p className="text-2xl font-bold text-gray-900">{enhancedInsights.submissionTrends?.reduce((sum: number, day: any) => sum + day.count, 0) || 0}</p>
+                  <p className="text-2xl font-bold text-gray-900">
+                    {data.stats.totalFeedback || enhancedInsights.submissionTrends?.reduce((sum: number, day: any) => sum + day.count, 0) || 0}
+                  </p>
                   <p className="text-xs text-gray-500">
-                    {timeRange === "7d" ? "Last 7 days" : timeRange === "30d" ? "Last 30 days" : timeRange === "90d" ? "Last 90 days" : "Last year"}
+                    {timeRange === "7d" ? "Last 7 days" : timeRange === "30d" ? "Last 30 days" : timeRange === "90d" ? "Last 90 days" : "All time"}
                   </p>
                 </div>
                 <div className="h-8 w-8 bg-orange-100 rounded-full flex items-center justify-center">
@@ -242,51 +244,59 @@ export function InsightsTab({ data }: InsightsTabProps) {
         </div>
       )}
 
-      {/* Submission Trends Chart */}
+      {/* Customer Satisfaction Analytics */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <TrendingUp className="h-5 w-5 text-blue-600" />
-            Feedback Submission Trends
+            <Star className="h-5 w-5 text-yellow-600" />
+            Customer Satisfaction Analytics
           </CardTitle>
-          <CardDescription>Daily submissions over the last 7 days</CardDescription>
+          <CardDescription>Rating distribution and customer feedback insights</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Line Chart */}
+            {/* Rating Bar Chart */}
             <div className="lg:col-span-2">
               {loading ? (
                 <div className="flex items-center justify-center h-64">
                   <div className="text-center">
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
-                    <p className="text-sm text-gray-500">Loading trends...</p>
+                    <p className="text-sm text-gray-500">Loading ratings...</p>
                   </div>
                 </div>
-              ) : insights?.submissionTrends && insights.submissionTrends.length > 0 ? (
+              ) : insights?.ratingDistribution && insights.ratingDistribution.some((r: any) => r.count > 0) ? (
                 <ResponsiveContainer width="100%" height={300}>
-                  <LineChart data={insights.submissionTrends}>
+                  <BarChart data={insights.ratingDistribution} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis
-                      dataKey="date"
-                      tickFormatter={(value) => new Date(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                      dataKey="rating"
+                      tickFormatter={(value) => `${value} ⭐`}
                     />
                     <YAxis />
                     <Tooltip
-                      labelFormatter={(value) => new Date(value).toLocaleDateString('en-US', {
-                        weekday: 'long',
-                        month: 'short',
-                        day: 'numeric'
-                      })}
+                      formatter={(value: any) => [`${value} customers`, 'Count']}
+                      labelFormatter={(value) => `${value} Star Rating`}
                     />
-                    <Line type="monotone" dataKey="count" stroke="#2563eb" strokeWidth={3} />
-                  </LineChart>
+                    <Bar
+                      dataKey="count"
+                      fill="#fbbf24"
+                      radius={[4, 4, 0, 0]}
+                    >
+                      {insights.ratingDistribution.map((entry: any, index: number) => (
+                        <Cell
+                          key={`cell-${index}`}
+                          fill={entry.rating >= 4 ? '#22c55e' : entry.rating >= 3 ? '#fbbf24' : '#ef4444'}
+                        />
+                      ))}
+                    </Bar>
+                  </BarChart>
                 </ResponsiveContainer>
               ) : (
                 <div className="flex items-center justify-center h-64 border-2 border-dashed border-gray-200 rounded-lg">
                   <div className="text-center">
-                    <TrendingUp className="h-12 w-12 text-gray-400 mx-auto mb-2" />
-                    <p className="text-gray-500 font-medium">No submission data yet</p>
-                    <p className="text-sm text-gray-400">Trends will appear once you receive feedback</p>
+                    <Star className="h-12 w-12 text-gray-400 mx-auto mb-2" />
+                    <p className="text-gray-500 font-medium">No ratings yet</p>
+                    <p className="text-sm text-gray-400">Rating distribution will appear once customers rate your business</p>
                   </div>
                 </div>
               )}
@@ -341,6 +351,69 @@ export function InsightsTab({ data }: InsightsTabProps) {
         </CardContent>
       </Card>
 
+      {/* Customer Engagement Overview */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-6">
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Total Feedback</p>
+                <p className="text-2xl font-bold text-gray-900">{data.stats.totalFeedback}</p>
+                <p className="text-xs text-green-600">All time submissions</p>
+              </div>
+              <div className="h-8 w-8 bg-blue-100 rounded-full flex items-center justify-center">
+                <MessageSquare className="h-4 w-4 text-blue-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Completion Rate</p>
+                <p className="text-2xl font-bold text-gray-900">{data.stats.completionRate}%</p>
+                <p className="text-xs text-blue-600">Form completion success</p>
+              </div>
+              <div className="h-8 w-8 bg-green-100 rounded-full flex items-center justify-center">
+                <TrendingUp className="h-4 w-4 text-green-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Average Rating</p>
+                <p className="text-2xl font-bold text-gray-900">{data.stats.averageRating} ⭐</p>
+                <p className="text-xs text-yellow-600">Customer satisfaction</p>
+              </div>
+              <div className="h-8 w-8 bg-yellow-100 rounded-full flex items-center justify-center">
+                <Star className="h-4 w-4 text-yellow-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Page Views</p>
+                <p className="text-2xl font-bold text-gray-900">{data.stats.pageViews}</p>
+                <p className="text-xs text-purple-600">Total visits</p>
+              </div>
+              <div className="h-8 w-8 bg-purple-100 rounded-full flex items-center justify-center">
+                <Users className="h-4 w-4 text-purple-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
       {/* AI Conclusions */}
       {ai?.insights?.conclusion && (
         <Card className="mt-6 border-gray-200">
@@ -369,49 +442,10 @@ export function InsightsTab({ data }: InsightsTabProps) {
         </Card>
       )}
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Total Feedback</p>
-                <p className="text-2xl font-bold">{data.stats.totalFeedback}</p>
-              </div>
-              <MessageSquare className="h-8 w-8 text-blue-600" />
-            </div>
-          </CardContent>
-        </Card>
 
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Page Views</p>
-                <p className="text-2xl font-bold">{data.stats.pageViews}</p>
-              </div>
-              <Users className="h-8 w-8 text-green-600" />
-            </div>
-          </CardContent>
-        </Card>
 
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Average Rating</p>
-                <p className="text-2xl font-bold">
-                  {data.stats.averageRating > 0 ? data.stats.averageRating.toFixed(1) : "N/A"}
-                </p>
-              </div>
-              <Star className="h-8 w-8 text-yellow-600" />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Recent Feedback and Top Issues */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {/* Analytics Grid - Recent Feedback and Top Issues */}
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mt-6">
         {/* Recent Customer Feedback */}
         <Card>
           <CardHeader>
