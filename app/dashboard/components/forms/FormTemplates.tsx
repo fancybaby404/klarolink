@@ -19,28 +19,32 @@ const formTemplates: FormTemplate[] = [
         id: "overall-rating",
         type: "rating",
         label: "How satisfied are you with our service?",
-        required: true
+        required: true,
+        field_category: "rating"
       },
       {
         id: "experience-feedback",
         type: "textarea",
         label: "Tell us about your experience",
         required: false,
-        placeholder: "Share your thoughts..."
+        placeholder: "Share your thoughts...",
+        field_category: "feedback_text"
       },
       {
         id: "recommend",
         type: "select",
         label: "Would you recommend us to others?",
         required: true,
-        options: ["Yes, definitely", "Yes, probably", "Maybe", "Probably not", "Definitely not"]
+        options: ["Yes, definitely", "Yes, probably", "Maybe", "Probably not", "Definitely not"],
+        field_category: "recommendation"
       },
       {
         id: "contact-email",
         type: "email",
         label: "Email (optional)",
         required: false,
-        placeholder: "your@email.com"
+        placeholder: "your@email.com",
+        field_category: "contact"
       }
     ]
   },
@@ -54,28 +58,32 @@ const formTemplates: FormTemplate[] = [
         id: "product-rating",
         type: "rating",
         label: "Rate this product",
-        required: true
+        required: true,
+        field_category: "rating"
       },
       {
         id: "product-quality",
         type: "select",
         label: "How would you rate the quality?",
         required: true,
-        options: ["Excellent", "Good", "Average", "Poor", "Very Poor"]
+        options: ["Excellent", "Good", "Average", "Poor", "Very Poor"],
+        field_category: "satisfaction"
       },
       {
         id: "favorite-features",
         type: "textarea",
         label: "Which features do you like most?",
         required: false,
-        placeholder: "Tell us about your favorite features..."
+        placeholder: "Tell us about your favorite features...",
+        field_category: "feedback_text"
       },
       {
         id: "missing-features",
         type: "textarea",
         label: "What features are missing?",
         required: false,
-        placeholder: "What would you like to see added..."
+        placeholder: "What would you like to see added...",
+        field_category: "feedback_text"
       },
       {
         id: "purchase-again",
@@ -96,34 +104,39 @@ const formTemplates: FormTemplate[] = [
         id: "service-rating",
         type: "rating",
         label: "Rate our service",
-        required: true
+        required: true,
+        field_category: "rating"
       },
       {
         id: "staff-rating",
         type: "rating",
         label: "How helpful was our staff?",
-        required: true
+        required: true,
+        field_category: "rating"
       },
       {
         id: "response-time",
         type: "select",
         label: "How was our response time?",
         required: true,
-        options: ["Very fast", "Fast", "Average", "Slow", "Very slow"]
+        options: ["Very fast", "Fast", "Average", "Slow", "Very slow"],
+        field_category: "satisfaction"
       },
       {
         id: "service-feedback",
         type: "textarea",
         label: "Tell us about your experience",
         required: false,
-        placeholder: "Share your experience with our service..."
+        placeholder: "Share your experience with our service...",
+        field_category: "feedback_text"
       },
       {
         id: "recommend-service",
         type: "select",
         label: "Would you recommend our service?",
         required: true,
-        options: ["Yes, definitely", "Yes, probably", "Maybe", "Probably not", "Definitely not"]
+        options: ["Yes, definitely", "Yes, probably", "Maybe", "Probably not", "Definitely not"],
+        field_category: "recommendation"
       }
     ]
   },
@@ -137,14 +150,16 @@ const formTemplates: FormTemplate[] = [
         id: "rating",
         type: "rating",
         label: "Overall Rating",
-        required: true
+        required: true,
+        field_category: "rating"
       },
       {
         id: "feedback",
         type: "textarea",
         label: "Your Feedback",
         required: true,
-        placeholder: "Tell us what you think..."
+        placeholder: "Tell us what you think...",
+        field_category: "feedback_text"
       }
     ]
   }

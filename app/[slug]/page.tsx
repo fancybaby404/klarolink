@@ -179,7 +179,8 @@ export default function FeedbackPage() {
     setLoginError("")
 
     try {
-      const response = await fetch('/api/auth/login', {
+      // Try customer login first, then fall back to user login
+      let response = await fetch('/api/auth/login-customer', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -187,19 +188,47 @@ export default function FeedbackPage() {
         body: JSON.stringify({
           email: loginEmail,
           password: loginPassword,
+          businessSlug: slug,
         }),
       })
 
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || 'Login failed')
+      let loginData
+      let isCustomerLogin = false
+
+      if (response.ok) {
+        // Customer login successful
+        loginData = await response.json()
+        isCustomerLogin = true
+        console.log('✅ Customer login successful')
+      } else {
+        // Fall back to user login for backward compatibility
+        console.log('🔄 Customer login failed, trying user login...')
+        response = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            email: loginEmail,
+            password: loginPassword,
+          }),
+        })
+
+        if (!response.ok) {
+          const errorData = await response.json()
+          throw new Error(errorData.error || 'Login failed')
+        }
+
+        loginData = await response.json()
+        console.log('✅ User login successful')
       }
 
-      const { token, user } = await response.json()
-
       // Store the token for future requests
-      localStorage.setItem("userToken", token)
-      setCurrentUser(user)
+      localStorage.setItem("userToken", loginData.token)
+
+      // Set current user (customer or user)
+      const userData = isCustomerLogin ? loginData.customer : loginData.user
+      setCurrentUser(userData)
 
       // Now submit the feedback
       await submitFeedback()
@@ -899,10 +928,11 @@ export default function FeedbackPage() {
       <RegistrationModal
         isOpen={showRegistrationModal}
         onClose={() => setShowRegistrationModal(false)}
+        businessSlug={slug}
         onSuccess={(userData) => {
           // Registration modal handles auto-login and token storage
           // We just need to set the current user from the login response
-          // The userData contains the user info from the login response
+          // The userData contains the user info from the login response (customer or user)
           setCurrentUser(userData)
           setShowRegistrationModal(false)
           // The user is now logged in and can submit feedback

@@ -29,6 +29,7 @@ export interface FormBuilderField {
   required: boolean
   placeholder?: string
   options?: string[]
+  field_category?: "personal_info" | "feedback_text" | "rating" | "contact" | "demographic" | "satisfaction" | "recommendation" | "custom"
 }
 
 export interface FormTemplate {

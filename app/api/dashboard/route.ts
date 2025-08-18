@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { verifyToken, getBusiness } from "@/lib/auth"
 import { db } from "@/lib/database-adapter"
+import { extractDataWithFallback, categorizeFormFields, addBackwardCompatibilityCategories } from "@/lib/field-categorization"
 
 export async function GET(request: NextRequest) {
   try {
@@ -26,12 +27,25 @@ export async function GET(request: NextRequest) {
     const socialLinks = await db.getSocialLinks(business.id)
     const feedbackForm = await db.getFeedbackForm(business.id)
 
-    const formattedRecentFeedback = recentFeedback.map((feedback) => ({
-      id: feedback.id,
-      rating: feedback.submission_data.rating || 0,
-      feedback: feedback.submission_data.feedback || feedback.submission_data.message || "No feedback text",
-      submitted_at: feedback.submitted_at,
-    }))
+    const formattedRecentFeedback = recentFeedback.map((feedback) => {
+      // Use enhanced field categorization with backward compatibility
+      let extractedData
+      if (feedbackForm?.fields) {
+        // Add backward compatibility categories for existing forms
+        const enhancedFields = addBackwardCompatibilityCategories(feedbackForm.fields)
+        extractedData = extractDataWithFallback(feedback.submission_data || {}, categorizeFormFields(enhancedFields))
+      } else {
+        extractedData = extractDataWithFallback(feedback.submission_data || {})
+      }
+
+      return {
+        id: feedback.id,
+        rating: extractedData.rating || 0,
+        feedback: extractedData.feedbackText || "No feedback text",
+        submitted_at: feedback.submitted_at,
+        submission_data: feedback.submission_data, // Include for frontend fallback
+      }
+    })
 
     return NextResponse.json({
       business,

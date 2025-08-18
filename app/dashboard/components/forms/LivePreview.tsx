@@ -3,6 +3,7 @@
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { ExternalLink, Eye, X } from "lucide-react"
+import type { DashboardData } from "../../types/dashboard"
 
 interface LivePreviewProps {
   businessSlug: string
@@ -11,6 +12,7 @@ interface LivePreviewProps {
   isCollapsed: boolean
   onToggleCollapse: (collapsed: boolean) => void
   onEnablePreview: () => void
+  data: DashboardData
 }
 
 export function LivePreview({
@@ -19,10 +21,15 @@ export function LivePreview({
   previewRefreshKey,
   isCollapsed,
   onToggleCollapse,
-  onEnablePreview
+  onEnablePreview,
+  data
 }: LivePreviewProps) {
+  // Get the current origin to handle dynamic ports
+  const currentOrigin = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000'
+  const previewUrl = `${currentOrigin}/skinbloom-2`
+
   const handlePreviewForm = () => {
-    window.open(`/${businessSlug}`, '_blank')
+    window.open(previewUrl, '_blank')
   }
 
   if (isCollapsed) {
@@ -40,93 +47,87 @@ export function LivePreview({
   }
 
   return (
-    <div className="sticky top-6">
-      <div className="bg-transparent">
-
-        {previewEnabled ? (
-          <div>
-            {/* iPhone-style Phone Mockup */}
-            <div className="mx-auto" style={{ width: '280px' }}>
-              {/* Phone Frame */}
-              <div className="relative bg-black rounded-[2.5rem] p-2 shadow-xl" style={{ height: '580px' }}>
-                {/* Screen */}
-                <div className="bg-white rounded-[2rem] overflow-hidden relative h-full">
-                  {/* Notch */}
-                  <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-24 h-5 bg-black rounded-b-2xl z-10"></div>
-
-                  {/* Status Bar */}
-                  <div className="h-10 bg-white flex items-center justify-between px-4 pt-7 text-black text-xs font-medium">
-                    <span>9:41</span>
-                    <div className="flex items-center gap-1">
-                      <div className="flex gap-0.5">
-                        <div className="w-1 h-1 bg-black rounded-full"></div>
-                        <div className="w-1 h-1 bg-black rounded-full"></div>
-                        <div className="w-1 h-1 bg-black rounded-full"></div>
-                        <div className="w-1 h-1 bg-gray-300 rounded-full"></div>
-                      </div>
-                      <div className="w-5 h-2.5 border border-black rounded-sm">
-                        <div className="w-4 h-1.5 bg-green-500 rounded-sm m-0.5"></div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Content Area */}
-                  <div className="relative overflow-hidden" style={{ height: 'calc(100% - 50px)' }}>
-                    <iframe
-                      src={`/${businessSlug}?preview=true`}
-                      className="absolute top-0 left-0 border-0"
-                      title="Form Preview"
-                      key={`preview-${previewRefreshKey}`}
-                      style={{
-                        width: '276px',
-                        height: '520px',
-                        transform: 'scale(1)',
-                        transformOrigin: 'top left',
-                        overflow: 'hidden'
-                      }}
-                      scrolling="no"
-                    />
-                  </div>
-
-                  {/* Home Indicator */}
-                  <div className="absolute bottom-3 left-1/2 transform -translate-x-1/2 w-24 h-1 bg-black rounded-full opacity-60"></div>
-                </div>
-              </div>
-
-              {/* Power Button */}
-              <div className="absolute right-[-3px] top-28 w-1.5 h-16 bg-gray-800 rounded-r-lg"></div>
-            </div>
-
-            <div className="mt-4">
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full"
-                onClick={handlePreviewForm}
-              >
-                <ExternalLink className="h-4 w-4 mr-2" />
-                Open in New Tab
-              </Button>
+    <div className="fixed top-6 right-6 w-80 h-[calc(100vh-3rem)] bg-white rounded-2xl shadow-2xl border-4 border-gray-900 overflow-hidden z-10">
+      {previewEnabled ? (
+        <div className="h-full flex flex-col">
+          {/* Header with status bar simulation */}
+          <div className="bg-black h-6 rounded-t-2xl flex items-center justify-center">
+            <div className="flex items-center gap-1">
+              <div className="w-1 h-1 bg-white rounded-full"></div>
+              <div className="w-1 h-1 bg-white rounded-full"></div>
+              <div className="w-1 h-1 bg-white rounded-full"></div>
             </div>
           </div>
-        ) : (
-          <div className="p-6 text-center">
-            <div className="space-y-4">
-              <div className="w-16 h-16 bg-gray-300 rounded-full flex items-center justify-center mx-auto">
-                <Eye className="h-8 w-8 text-gray-500" />
-              </div>
-              <div>
-                <h4 className="text-lg font-medium text-gray-900 mb-2">
-                  Live Preview
-                </h4>
-                <p className="text-sm text-gray-600">
-                  Your form preview will appear here
-                </p>
-              </div>
+
+          {/* Live iframe container */}
+          <div className="flex-1 relative overflow-hidden">
+            {/* Actual page iframe */}
+            <iframe
+              key={previewRefreshKey}
+              src={previewUrl}
+              className="w-full h-full border-0"
+              style={{
+                transform: 'scale(1)',
+                transformOrigin: 'top left',
+                overflowX: 'hidden'
+              }}
+              sandbox="allow-same-origin allow-scripts"
+              loading="lazy"
+              title="Live Preview"
+            />
+
+            {/* Interaction blocker overlay - blocks clicks and form submissions but allows scrolling */}
+            <div
+              className="absolute inset-0 z-10"
+              style={{
+                pointerEvents: 'auto',
+                background: 'transparent'
+              }}
+              onClick={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+              }}
+              onMouseDown={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+              }}
+              onSubmit={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+              }}
+            />
+          </div>
+
+          {/* Footer with Open in New Tab button */}
+          <div className="p-3 bg-white border-t border-gray-200">
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full"
+              onClick={handlePreviewForm}
+            >
+              <ExternalLink className="h-4 w-4 mr-2" />
+              Open in New Tab
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <div className="h-full flex items-center justify-center p-6">
+          <div className="text-center space-y-4">
+            <div className="w-16 h-16 bg-gray-300 rounded-full flex items-center justify-center mx-auto">
+              <Eye className="h-8 w-8 text-gray-500" />
+            </div>
+            <div>
+              <h4 className="text-lg font-medium text-gray-900 mb-2">
+                Live Preview
+              </h4>
+              <p className="text-sm text-gray-600">
+                Your form preview will appear here
+              </p>
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   )
 }

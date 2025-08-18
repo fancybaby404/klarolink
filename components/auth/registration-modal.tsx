@@ -18,9 +18,10 @@ interface RegistrationModalProps {
   isOpen: boolean
   onClose: () => void
   onSuccess?: (userData: any) => void
+  businessSlug?: string // Add business slug for customer registration
 }
 
-export function RegistrationModal({ isOpen, onClose, onSuccess }: RegistrationModalProps) {
+export function RegistrationModal({ isOpen, onClose, onSuccess, businessSlug }: RegistrationModalProps) {
   const [formData, setFormData] = useState({
     email: "",
     password: "",
@@ -75,63 +76,128 @@ export function RegistrationModal({ isOpen, onClose, onSuccess }: RegistrationMo
     setIsLoading(true)
     
     try {
-      // Register the user
-      const registerResponse = await fetch('/api/auth/register-user', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email: formData.email,
-          password: formData.password,
-          firstName: formData.firstName,
-          lastName: formData.lastName,
-        }),
-      })
-
-      const registerData = await registerResponse.json()
-
-      if (!registerResponse.ok) {
-        toast.error(registerData.error || "Registration failed")
-        return
-      }
-
-      // Auto-login after successful registration
-      const loginResponse = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email: formData.email,
-          password: formData.password,
-        }),
-      })
-
-      const loginData = await loginResponse.json()
-
-      if (loginResponse.ok) {
-        toast.success("Account created successfully! You're now logged in.")
-        
-        // Store user token for feedback submission
-        localStorage.setItem("userToken", loginData.token)
-        
-        // Reset form
-        setFormData({
-          email: "",
-          password: "",
-          confirmPassword: "",
-          firstName: "",
-          lastName: "",
+      // Use customer registration if businessSlug is provided, otherwise fall back to user registration
+      if (businessSlug) {
+        // Register as customer
+        const registerResponse = await fetch('/api/auth/register-customer', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            email: formData.email,
+            password: formData.password,
+            firstName: formData.firstName,
+            lastName: formData.lastName,
+            businessSlug: businessSlug,
+            preferredContactMethod: 'email',
+          }),
         })
-        
-        // Call success callback with user data from login response
-        onSuccess?.(loginData.user)
-        
-        onClose()
+
+        const registerData = await registerResponse.json()
+
+        if (!registerResponse.ok) {
+          toast.error(registerData.error || "Registration failed")
+          return
+        }
+
+        // Auto-login after successful customer registration
+        const loginResponse = await fetch('/api/auth/login-customer', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            email: formData.email,
+            password: formData.password,
+            businessSlug: businessSlug,
+          }),
+        })
+
+        const loginData = await loginResponse.json()
+
+        if (loginResponse.ok) {
+          toast.success("Account created successfully! You're now logged in.")
+
+          // Store customer token for feedback submission
+          localStorage.setItem("userToken", loginData.token)
+
+          // Reset form
+          setFormData({
+            email: "",
+            password: "",
+            confirmPassword: "",
+            firstName: "",
+            lastName: "",
+          })
+
+          // Call success callback with customer data from login response
+          onSuccess?.(loginData.customer)
+
+          onClose()
+        } else {
+          toast.error("Registration successful, but auto-login failed. Please log in manually.")
+          onClose()
+        }
       } else {
-        toast.error("Registration successful, but auto-login failed. Please log in manually.")
-        onClose()
+        // Fall back to user registration for backward compatibility
+        const registerResponse = await fetch('/api/auth/register-user', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            email: formData.email,
+            password: formData.password,
+            firstName: formData.firstName,
+            lastName: formData.lastName,
+          }),
+        })
+
+        const registerData = await registerResponse.json()
+
+        if (!registerResponse.ok) {
+          toast.error(registerData.error || "Registration failed")
+          return
+        }
+
+        // Auto-login after successful user registration
+        const loginResponse = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            email: formData.email,
+            password: formData.password,
+          }),
+        })
+
+        const loginData = await loginResponse.json()
+
+        if (loginResponse.ok) {
+          toast.success("Account created successfully! You're now logged in.")
+
+          // Store user token for feedback submission
+          localStorage.setItem("userToken", loginData.token)
+
+          // Reset form
+          setFormData({
+            email: "",
+            password: "",
+            confirmPassword: "",
+            firstName: "",
+            lastName: "",
+          })
+
+          // Call success callback with user data from login response
+          onSuccess?.(loginData.user)
+
+          onClose()
+        } else {
+          toast.error("Registration successful, but auto-login failed. Please log in manually.")
+          onClose()
+        }
       }
     } catch (error) {
       console.error("Registration error:", error)

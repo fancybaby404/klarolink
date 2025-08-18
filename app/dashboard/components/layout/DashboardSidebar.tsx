@@ -111,6 +111,8 @@ export function DashboardSidebar({
           ))}
         </SidebarMenu>
 
+
+
         {/* Logout Button at Bottom */}
         <div className="mt-auto p-2 border-t border-shadow">
           <SidebarMenuButton

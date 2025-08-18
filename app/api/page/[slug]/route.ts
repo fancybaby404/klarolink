@@ -14,7 +14,7 @@ export async function GET(request: NextRequest, { params }: { params: { slug: st
     const formFields = form?.fields || []
     const formTitle = form?.title || "Share Your Experience"
     const formDescription = form?.description || "Your feedback helps us improve our service"
-    const previewEnabled = (form as any)?.preview_enabled !== false // Default to true if not set
+    const previewEnabled = (form as any)?.is_published === true // Only enable if explicitly published
 
     // Get social links
     const socialLinks = await db.getSocialLinks(business.id)

@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { getBusinessBySlug, verifyUserToken, getUser } from "@/lib/auth"
+import { getBusinessBySlug, verifyUserToken, verifyCustomerToken, getUser, getCustomer } from "@/lib/auth"
 import { db } from "@/lib/database-adapter"
 
 export async function POST(request: NextRequest, { params }: { params: { slug: string } }) {
@@ -16,18 +16,46 @@ export async function POST(request: NextRequest, { params }: { params: { slug: s
     }
 
     const token = authHeader.substring(7)
-    const payload = verifyUserToken(token) // Note: uses userToken from public page, not business token
-    if (!payload) {
-      return NextResponse.json({ error: "Invalid or expired token. Please log in again." }, { status: 401 })
-    }
+    // Try to verify as customer token first, then fall back to user token
+    let customer = null
+    let user = null
+    let authenticatedUserId = null
 
-    // Verify user exists
-    const user = await getUser(payload.userId)
-    if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 401 })
-    }
+    const customerPayload = verifyCustomerToken(token)
+    if (customerPayload) {
+      // Customer authentication
+      customer = await getCustomer(customerPayload.customerId)
+      if (!customer) {
+        return NextResponse.json({ error: "Customer not found" }, { status: 401 })
+      }
 
-    // Note: We don't check is_active here because it refers to business preview status, not user account status
+      // Verify customer has access to this business
+      if (customer.business_id !== business.id) {
+        return NextResponse.json({ error: "Access denied for this business" }, { status: 403 })
+      }
+
+      // Check if customer is active
+      if (customer.customer_status !== 'active') {
+        return NextResponse.json({ error: "Customer account is inactive" }, { status: 401 })
+      }
+
+      authenticatedUserId = customer.customer_id
+      console.log(`✅ Customer authenticated: ${customer.email} (ID: ${customer.customer_id})`)
+    } else {
+      // Fall back to user authentication for backward compatibility
+      const userPayload = verifyUserToken(token)
+      if (!userPayload) {
+        return NextResponse.json({ error: "Invalid or expired token. Please log in again." }, { status: 401 })
+      }
+
+      user = await getUser(userPayload.userId)
+      if (!user) {
+        return NextResponse.json({ error: "User not found" }, { status: 401 })
+      }
+
+      authenticatedUserId = user.id
+      console.log(`✅ User authenticated: ${user.email} (ID: ${user.id})`)
+    }
 
     const { formData, referralCode } = await request.json()
 
@@ -46,14 +74,16 @@ export async function POST(request: NextRequest, { params }: { params: { slug: s
     const ip = request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip") || "unknown"
     const userAgent = request.headers.get("user-agent") || "unknown"
 
-    // Insert feedback submission with user_id and referral tracking
+    // Insert feedback submission with authenticated user/customer ID and referral tracking
     await db.createFeedbackSubmission({
       business_id: business.id,
       form_id: form.id,
-      user_id: user.id,
+      user_id: authenticatedUserId, // This will be customer_id for customers or user.id for legacy users
       submission_data: {
         ...formData,
         referral_code: referralCode,
+        submitted_by_type: customer ? 'customer' : 'user', // Track submission type
+        submitted_by_email: customer ? customer.email : user?.email,
       },
       ip_address: ip,
       user_agent: userAgent,
@@ -62,7 +92,7 @@ export async function POST(request: NextRequest, { params }: { params: { slug: s
     // Complete referral if this is a referred user's first feedback
     if (referralCode) {
       try {
-        await db.completeReferral(referralCode, user.id)
+        await db.completeReferral(referralCode, authenticatedUserId)
       } catch (error) {
         // Don't fail the feedback submission if referral completion fails
       }

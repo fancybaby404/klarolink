@@ -68,6 +68,36 @@ export function FieldEditor({
               </Select>
             </div>
 
+            <div>
+              <Label htmlFor="field-category">Analytics Category</Label>
+              <Select
+                value={field.field_category || "custom"}
+                onValueChange={(value) => {
+                  onFieldChange({
+                    ...field,
+                    field_category: value as any
+                  })
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="rating">Rating/Score</SelectItem>
+                  <SelectItem value="feedback_text">Feedback Text</SelectItem>
+                  <SelectItem value="personal_info">Personal Info</SelectItem>
+                  <SelectItem value="contact">Contact Info</SelectItem>
+                  <SelectItem value="satisfaction">Satisfaction</SelectItem>
+                  <SelectItem value="recommendation">Recommendation</SelectItem>
+                  <SelectItem value="demographic">Demographic</SelectItem>
+                  <SelectItem value="custom">Custom/Other</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-gray-500 mt-1">
+                This helps analytics identify the field's purpose for reporting.
+              </p>
+            </div>
+
             <div className="flex items-center space-x-2">
               <Switch
                 id="field-required"

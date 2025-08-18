@@ -229,7 +229,7 @@ export function SocialLinksManager({ socialLinks, onSocialLinksChange, className
                     <SelectTrigger>
                       <SelectValue placeholder="Select platform" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="max-h-[300px]" position="popper" sideOffset={4}>
                       {platformCategories.map(category => (
                         <div key={category.id}>
                           <div className="px-2 py-1 text-xs font-medium text-gray-500 uppercase tracking-wide">

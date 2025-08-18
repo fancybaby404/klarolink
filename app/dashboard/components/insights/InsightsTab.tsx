@@ -12,6 +12,7 @@ import {
   AlertTriangle
 } from "lucide-react"
 import type { DashboardData } from "../../types/dashboard"
+import { extractDataWithFallback } from "@/lib/field-categorization"
 
 interface InsightsTabProps {
   data: DashboardData
@@ -432,12 +433,10 @@ export function InsightsTab({ data }: InsightsTabProps) {
                     }
                   }
 
-                  const rating = feedback.rating || submissionData?.rating || 0
-                  const feedbackText = feedback.feedback ||
-                                     submissionData?.feedback ||
-                                     submissionData?.message ||
-                                     submissionData?.comment ||
-                                     "No feedback text provided"
+                  // Use field categorization to extract data
+                  const extractedData = extractDataWithFallback(submissionData || {})
+                  const rating = feedback.rating || extractedData.rating || 0
+                  const feedbackText = feedback.feedback || extractedData.feedbackText || "No feedback text provided"
                   const submittedAt = feedback.submitted_at
 
                   return (

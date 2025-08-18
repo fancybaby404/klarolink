@@ -10,6 +10,24 @@ export interface User {
   updated_at: string
 }
 
+export interface Customer {
+  customer_id: number
+  business_id: number
+  first_name: string
+  last_name: string
+  email: string
+  phone_number?: string
+  password: string
+  created_at: string
+  address?: string
+  date_of_birth?: string
+  gender?: string
+  registration_date: string
+  customer_status: 'active' | 'inactive'
+  preferred_contact_method: 'email' | 'phone' | 'sms'
+  account_created_by?: number
+}
+
 export interface Business {
   id: number
   name: string
@@ -100,7 +118,7 @@ export interface FormField {
   options?: string[]
   // Analytics metadata
   analytics_enabled?: boolean
-  field_category?: "personal_info" | "feedback" | "rating" | "contact" | "custom"
+  field_category?: "personal_info" | "feedback_text" | "rating" | "contact" | "demographic" | "satisfaction" | "recommendation" | "custom"
   validation_rules?: {
     min_length?: number
     max_length?: number

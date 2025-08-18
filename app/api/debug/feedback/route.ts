@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { verifyToken } from "@/lib/auth"
 import { db } from "@/lib/database-adapter"
+import { extractDataWithFallback } from "@/lib/field-categorization"
 
 export async function GET(request: NextRequest) {
   try {
@@ -38,14 +39,17 @@ export async function GET(request: NextRequest) {
       businessId: payload.businessId,
       feedbackCount: feedbackSubmissions.length,
       analyticsStats,
-      feedbackSubmissions: feedbackSubmissions.map(f => ({
-        id: f.id,
-        business_id: f.business_id,
-        submitted_at: f.submitted_at,
-        rating: f.submission_data?.rating,
-        feedback: f.submission_data?.feedback || f.submission_data?.message,
-        hasData: !!f.submission_data
-      })),
+      feedbackSubmissions: feedbackSubmissions.map(f => {
+        const extractedData = extractDataWithFallback(f.submission_data || {})
+        return {
+          id: f.id,
+          business_id: f.business_id,
+          submitted_at: f.submitted_at,
+          rating: extractedData.rating,
+          feedback: extractedData.feedbackText,
+          hasData: !!f.submission_data
+        }
+      }),
       success: true
     })
   } catch (error) {

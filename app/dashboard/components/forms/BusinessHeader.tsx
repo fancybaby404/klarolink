@@ -65,7 +65,7 @@ export function BusinessHeader({ business, socialLinks }: BusinessHeaderProps) {
   }
 
   return (
-    <div className="bg-white border border-gray-200 rounded-lg p-6 mb-6">
+    <div className="bg-white border-2 border-gray-200 rounded-lg p-6 mb-6">
       <div className="flex items-start gap-4">
         {/* Profile Image */}
         <Avatar className="w-16 h-16">

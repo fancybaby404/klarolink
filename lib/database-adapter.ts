@@ -1,5 +1,6 @@
 // Database abstraction layer for v0 compatibility
-import type { Business, FeedbackForm, SocialLink, FeedbackSubmission, AnalyticsEvent, FormField, CustomerProfile, CustomerSegment, User, UserBusinessAccess } from "./types"
+import type { Business, FeedbackForm, SocialLink, FeedbackSubmission, AnalyticsEvent, FormField, CustomerProfile, CustomerSegment, User, Customer, UserBusinessAccess } from "./types"
+import { extractAnalyticsData, getFormFieldCategorizations } from "./field-categorization"
 import { Pool } from 'pg'
 
 const pool = new Pool({
@@ -467,6 +468,12 @@ export interface DatabaseAdapter {
   getUserBusinessAccess(userId: number): Promise<Business[]>
   validateUserBusinessAccess(userId: number, businessId: number): Promise<boolean>
 
+  // Customer authentication operations
+  getCustomer(id: number): Promise<Customer | null>
+  getCustomerByEmail(email: string, businessId?: number): Promise<Customer | null>
+  createCustomer(data: Omit<Customer, "customer_id" | "created_at" | "registration_date">): Promise<Customer>
+  validateCustomerBusinessAccess(customerId: number, businessId: number): Promise<boolean>
+
   // Direct query method for custom queries
   query?(sql: string, params?: any[]): Promise<any[]>
 }
@@ -616,7 +623,22 @@ class MockDatabaseAdapter implements DatabaseAdapter {
     const pageViews = events.filter((e) => e.event_type === "page_view").length
     const formSubmits = events.filter((e) => e.event_type === "form_submit").length
 
-    const ratings = feedback.map((s) => s.submission_data.rating).filter((r): r is number => typeof r === "number")
+    // Use new field categorization system to extract ratings
+    const ratings: number[] = []
+    for (const submission of feedback) {
+      try {
+        const analyticsData = await extractAnalyticsData(submission.submission_data, submission.form_id)
+        if (analyticsData.rating !== null && analyticsData.rating >= 1 && analyticsData.rating <= 10) {
+          ratings.push(analyticsData.rating)
+        }
+      } catch (error) {
+        // Fallback to old method if categorization fails
+        const rating = submission.submission_data.rating
+        if (typeof rating === "number" && rating >= 1 && rating <= 10) {
+          ratings.push(rating)
+        }
+      }
+    }
 
     const averageRating = ratings.length > 0 ? ratings.reduce((a, b) => a + b, 0) / ratings.length : 0
 
@@ -676,8 +698,23 @@ class MockDatabaseAdapter implements DatabaseAdapter {
       })
     }
 
-    // Rating distribution
-    const ratings = feedback.map(f => f.submission_data.rating).filter(r => typeof r === 'number')
+    // Rating distribution using field categorization
+    const ratings: number[] = []
+    for (const submission of feedback) {
+      try {
+        const analyticsData = await extractAnalyticsData(submission.submission_data, submission.form_id)
+        if (analyticsData.rating !== null && analyticsData.rating >= 1 && analyticsData.rating <= 10) {
+          ratings.push(analyticsData.rating)
+        }
+      } catch (error) {
+        // Fallback to old method
+        const rating = submission.submission_data.rating
+        if (typeof rating === 'number' && rating >= 1 && rating <= 10) {
+          ratings.push(rating)
+        }
+      }
+    }
+
     const ratingDistribution = [1, 2, 3, 4, 5].map(rating => ({
       rating,
       count: ratings.filter(r => r === rating).length
@@ -1228,6 +1265,33 @@ class MockDatabaseAdapter implements DatabaseAdapter {
   async validateUserBusinessAccess(userId: number, businessId: number): Promise<boolean> {
     return this.userBusinessAccess.some(uba => uba.user_id === userId && uba.business_id === businessId)
   }
+
+  // Customer authentication operations (mock implementation)
+  async getCustomer(id: number): Promise<Customer | null> {
+    // Mock implementation - in real scenario this would query the customers table
+    return null
+  }
+
+  async getCustomerByEmail(email: string, businessId?: number): Promise<Customer | null> {
+    // Mock implementation - in real scenario this would query the customers table
+    return null
+  }
+
+  async createCustomer(data: Omit<Customer, "customer_id" | "created_at" | "registration_date">): Promise<Customer> {
+    // Mock implementation - in real scenario this would insert into customers table
+    const mockCustomer: Customer = {
+      customer_id: Math.floor(Math.random() * 1000) + 1,
+      created_at: new Date().toISOString(),
+      registration_date: new Date().toISOString(),
+      ...data
+    }
+    return mockCustomer
+  }
+
+  async validateCustomerBusinessAccess(customerId: number, businessId: number): Promise<boolean> {
+    // Mock implementation - always return true for testing
+    return true
+  }
 }
 
 // Neon database adapter for production
@@ -1568,17 +1632,33 @@ class NeonDatabaseAdapter implements DatabaseAdapter {
 
       const totalFeedback = feedbackSubmissions.length
 
-      // Extract ratings from submission_data JSON
-      const ratings = feedbackSubmissions
-        .map((s: any) => {
-          try {
-            const data = typeof s.submission_data === 'string' ? JSON.parse(s.submission_data) : s.submission_data
-            return data?.rating
-          } catch {
-            return null
+      // Extract ratings using field categorization system
+      const ratings: number[] = []
+      for (const submission of feedbackSubmissions) {
+        try {
+          const submissionData = typeof submission.submission_data === 'string'
+            ? JSON.parse(submission.submission_data)
+            : submission.submission_data
+
+          const analyticsData = await extractAnalyticsData(submissionData, submission.form_id)
+          if (analyticsData.rating !== null && analyticsData.rating >= 1 && analyticsData.rating <= 10) {
+            ratings.push(analyticsData.rating)
           }
-        })
-        .filter((r: any): r is number => typeof r === "number" && r >= 1 && r <= 5)
+        } catch (error) {
+          // Fallback to old extraction method
+          try {
+            const data = typeof submission.submission_data === 'string'
+              ? JSON.parse(submission.submission_data)
+              : submission.submission_data
+            const rating = data?.rating
+            if (typeof rating === "number" && rating >= 1 && rating <= 10) {
+              ratings.push(rating)
+            }
+          } catch {
+            // Skip this submission if we can't parse it
+          }
+        }
+      }
 
       const averageRating = ratings.length > 0 ? ratings.reduce((a, b) => a + b, 0) / ratings.length : 0
       const pageViews = analyticsResult.find((r: any) => r.event_type === "page_view")?.count || 0
@@ -1695,17 +1775,33 @@ class NeonDatabaseAdapter implements DatabaseAdapter {
         })
       }
 
-      // Rating distribution
-      const ratings = submissionsResult
-        .map((s: any) => {
-          try {
-            const data = typeof s.submission_data === 'string' ? JSON.parse(s.submission_data) : s.submission_data
-            return data?.rating
-          } catch {
-            return null
+      // Rating distribution using field categorization
+      const ratings: number[] = []
+      for (const submission of submissionsResult) {
+        try {
+          const submissionData = typeof submission.submission_data === 'string'
+            ? JSON.parse(submission.submission_data)
+            : submission.submission_data
+
+          const analyticsData = await extractAnalyticsData(submissionData, submission.form_id)
+          if (analyticsData.rating !== null && analyticsData.rating >= 1 && analyticsData.rating <= 10) {
+            ratings.push(analyticsData.rating)
           }
-        })
-        .filter((r: any): r is number => typeof r === "number" && r >= 1 && r <= 5)
+        } catch (error) {
+          // Fallback to old extraction method
+          try {
+            const data = typeof submission.submission_data === 'string'
+              ? JSON.parse(submission.submission_data)
+              : submission.submission_data
+            const rating = data?.rating
+            if (typeof rating === "number" && rating >= 1 && rating <= 10) {
+              ratings.push(rating)
+            }
+          } catch {
+            // Skip this submission if we can't parse it
+          }
+        }
+      }
 
       const ratingDistribution = [1, 2, 3, 4, 5].map(rating => ({
         rating,
@@ -2497,6 +2593,109 @@ class NeonDatabaseAdapter implements DatabaseAdapter {
     } catch (error) {
       console.error("❌ Database error in validateUserBusinessAccess:", error)
       return mockDatabaseAdapter.validateUserBusinessAccess(userId, businessId)
+    }
+  }
+
+  // Customer authentication operations
+  async getCustomer(id: number): Promise<Customer | null> {
+    try {
+      console.log(`👤 Getting customer by ID: ${id}`)
+      const result = await this.query(`
+        SELECT * FROM customers WHERE customer_id = $1
+      `, [id])
+
+      if (result.length === 0) {
+        console.log(`❌ Customer not found: ${id}`)
+        return null
+      }
+
+      const customer = result[0]
+      console.log(`✅ Customer found: ${customer.email}`)
+      return customer
+    } catch (error) {
+      console.error("❌ Database error in getCustomer:", error)
+      return null
+    }
+  }
+
+  async getCustomerByEmail(email: string, businessId?: number): Promise<Customer | null> {
+    try {
+      console.log(`👤 Getting customer by email: ${email}${businessId ? ` for business ${businessId}` : ''}`)
+
+      let query = `SELECT * FROM customers WHERE email = $1`
+      let params = [email]
+
+      if (businessId) {
+        query += ` AND business_id = $2`
+        params.push(businessId)
+      }
+
+      const result = await this.query(query, params)
+
+      if (result.length === 0) {
+        console.log(`❌ Customer not found: ${email}`)
+        return null
+      }
+
+      const customer = result[0]
+      console.log(`✅ Customer found: ${customer.email} (ID: ${customer.customer_id})`)
+      return customer
+    } catch (error) {
+      console.error("❌ Database error in getCustomerByEmail:", error)
+      return null
+    }
+  }
+
+  async createCustomer(data: Omit<Customer, "customer_id" | "created_at" | "registration_date">): Promise<Customer> {
+    try {
+      console.log(`👤 Creating customer: ${data.email} for business ${data.business_id}`)
+
+      const result = await this.query(`
+        INSERT INTO customers (
+          business_id, first_name, last_name, email, phone_number, password,
+          customer_status, preferred_contact_method, address, date_of_birth,
+          gender, account_created_by, registration_date
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, CURRENT_TIMESTAMP)
+        RETURNING *
+      `, [
+        data.business_id,
+        data.first_name,
+        data.last_name,
+        data.email,
+        data.phone_number || null,
+        data.password,
+        data.customer_status || 'active',
+        data.preferred_contact_method || 'email',
+        data.address || null,
+        data.date_of_birth || null,
+        data.gender || null,
+        data.account_created_by || null
+      ])
+
+      const customer = result[0]
+      console.log(`✅ Customer created: ${customer.email} (ID: ${customer.customer_id})`)
+      return customer
+    } catch (error) {
+      console.error("❌ Database error in createCustomer:", error)
+      throw error
+    }
+  }
+
+  async validateCustomerBusinessAccess(customerId: number, businessId: number): Promise<boolean> {
+    try {
+      console.log(`🔍 Validating customer ${customerId} access to business ${businessId}`)
+
+      const result = await this.query(`
+        SELECT 1 FROM customers
+        WHERE customer_id = $1 AND business_id = $2 AND customer_status = 'active'
+      `, [customerId, businessId])
+
+      const hasAccess = result.length > 0
+      console.log(`✅ Customer ${customerId} ${hasAccess ? 'has' : 'does not have'} access to business ${businessId}`)
+      return hasAccess
+    } catch (error) {
+      console.error("❌ Database error in validateCustomerBusinessAccess:", error)
+      return false
     }
   }
 }

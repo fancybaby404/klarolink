@@ -1,7 +1,7 @@
 import bcrypt from "bcryptjs"
 import jwt from "jsonwebtoken"
 import { db } from "./database-adapter"
-import type { Business, User } from "./types"
+import type { Business, User, Customer } from "./types"
 
 const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key-change-in-production"
 
@@ -26,6 +26,10 @@ export function generateUserToken(userId: number): string {
   return jwt.sign({ userId }, JWT_SECRET, { expiresIn: "7d" })
 }
 
+export function generateCustomerToken(customerId: number): string {
+  return jwt.sign({ customerId }, JWT_SECRET, { expiresIn: "7d" })
+}
+
 export function verifyToken(token: string): { businessId: number } | null {
   try {
     console.log('🔑 Verifying token, length:', token.length)
@@ -41,6 +45,14 @@ export function verifyToken(token: string): { businessId: number } | null {
 export function verifyUserToken(token: string): { userId: number } | null {
   try {
     return jwt.verify(token, JWT_SECRET) as { userId: number }
+  } catch {
+    return null
+  }
+}
+
+export function verifyCustomerToken(token: string): { customerId: number } | null {
+  try {
+    return jwt.verify(token, JWT_SECRET) as { customerId: number }
   } catch {
     return null
   }
@@ -389,6 +401,69 @@ export async function getUserBusinessAccess(userId: number): Promise<Business[]>
     return businesses
   } catch (error) {
     return []
+  }
+}
+
+// Customer authentication functions
+export async function getCustomer(id: number): Promise<Customer | null> {
+  try {
+    const customer = await db.getCustomer(id)
+    return customer
+  } catch (error) {
+    return null
+  }
+}
+
+export async function getCustomerByEmail(email: string, businessId?: number): Promise<Customer | null> {
+  try {
+    const customer = await db.getCustomerByEmail(email, businessId)
+    return customer
+  } catch (error) {
+    return null
+  }
+}
+
+export async function createCustomer(data: {
+  business_id: number
+  first_name: string
+  last_name: string
+  email: string
+  password: string
+  phone_number?: string
+  preferred_contact_method?: 'email' | 'phone' | 'sms'
+  address?: string
+  date_of_birth?: string
+  gender?: string
+}): Promise<Customer> {
+  try {
+    // Check if customer already exists for this business
+    const existingCustomer = await db.getCustomerByEmail(data.email, data.business_id)
+    if (existingCustomer) {
+      throw new Error("Customer with this email already exists for this business")
+    }
+
+    // Hash password
+    const passwordHash = await hashPassword(data.password)
+
+    const customerData = {
+      business_id: data.business_id,
+      first_name: data.first_name,
+      last_name: data.last_name,
+      email: data.email,
+      password: passwordHash,
+      phone_number: data.phone_number,
+      customer_status: 'active' as const,
+      preferred_contact_method: data.preferred_contact_method || 'email' as const,
+      address: data.address,
+      date_of_birth: data.date_of_birth,
+      gender: data.gender
+    }
+
+    const customer = await db.createCustomer(customerData)
+    return customer
+  } catch (error) {
+    console.error("❌ Error creating customer:", error)
+    throw error
   }
 }
 

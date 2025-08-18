@@ -1,12 +1,13 @@
 "use client"
 
-import React, { useState } from "react"
+import React, { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
-import { Badge } from "@/components/ui/badge"
-import { Edit, Eye, Plus, Package, Trash2 } from "lucide-react"
+
+import { Edit, Eye, EyeOff, Plus, Package, Trash2, Save, Undo, Redo, X, ArrowUpDown } from "lucide-react"
+import { Input } from "@/components/ui/input"
 import { FormTemplates } from "./FormTemplates"
 import { FieldEditor } from "./FieldEditor"
 import { LivePreview } from "./LivePreview"
@@ -16,6 +17,8 @@ import { ProductSelectionModal } from "./ProductSelectionModal"
 import { useFormManagement } from "../../hooks/useFormManagement"
 import type { DashboardData, FormTemplate } from "../../types/dashboard"
 import type { ProductWithPricing } from "@/lib/types"
+import { useToast } from "@/components/ui/use-toast"
+import { Toaster } from "@/components/ui/toaster"
 
 interface FormBuilderProps {
   data: DashboardData
@@ -23,12 +26,17 @@ interface FormBuilderProps {
 }
 
 export function FormBuilder({ data, onDataUpdate }: FormBuilderProps) {
+  const { toast } = useToast()
   const [showTemplates, setShowTemplates] = useState(false)
   const [previewCollapsed, setPreviewCollapsed] = useState(false)
   const [showAddItemModal, setShowAddItemModal] = useState(false)
   const [showProductModal, setShowProductModal] = useState(false)
   const [selectedProducts, setSelectedProducts] = useState<ProductWithPricing[]>([])
   const [isAutoSaving, setIsAutoSaving] = useState(false)
+  const [isEditingHeader, setIsEditingHeader] = useState(false)
+  const [tempTitle, setTempTitle] = useState("")
+  const [tempDescription, setTempDescription] = useState("")
+  const [isFormPublished, setIsFormPublished] = useState(false)
 
   const {
     formTitle,
@@ -103,6 +111,135 @@ export function FormBuilder({ data, onDataUpdate }: FormBuilderProps) {
     }
   }
 
+  const handleEditHeader = () => {
+    setTempTitle(formTitle)
+    setTempDescription(formDescription)
+    setIsEditingHeader(true)
+  }
+
+  const handleSaveHeader = async () => {
+    setFormTitle(tempTitle)
+    setFormDescription(tempDescription)
+    setIsEditingHeader(false)
+
+    // Auto-save the form
+    const formData = {
+      title: tempTitle,
+      description: tempDescription,
+      fields: formFields
+    }
+    await handleFormSave(formData)
+  }
+
+  const handleCancelHeader = () => {
+    setTempTitle(formTitle)
+    setTempDescription(formDescription)
+    setIsEditingHeader(false)
+  }
+
+  // Handle form publish toggle
+  const handleFormPublishToggle = async (checked: boolean) => {
+    try {
+      // Update the form's published status via API
+      const response = await fetch('/api/forms/publish', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        },
+        body: JSON.stringify({
+          businessId: data.business.id,
+          isPublished: checked
+        })
+      })
+
+      if (response.ok) {
+        setIsFormPublished(checked)
+
+        if (checked) {
+          toast({
+            title: "Form is now public",
+            description: "Your form is accessible at http://localhost:3000/skinbloom-2",
+            duration: 3000,
+          })
+        } else {
+          toast({
+            title: "Form access disabled",
+            description: "Your form is now private and not accessible publicly.",
+            duration: 3000,
+          })
+        }
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to update form access. Please try again.",
+          duration: 3000,
+          variant: "destructive"
+        })
+      }
+    } catch (error) {
+      console.error('Error updating form publish status:', error)
+      toast({
+        title: "Error",
+        description: "Failed to update form access. Please try again.",
+        duration: 3000,
+        variant: "destructive"
+      })
+    }
+  }
+
+  // Load current form publish status
+  useEffect(() => {
+    const loadFormStatus = async () => {
+      try {
+        const response = await fetch(`/api/forms/status/${data.business.id}`, {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          }
+        })
+        if (response.ok) {
+          const { isPublished } = await response.json()
+          setIsFormPublished(isPublished)
+        }
+      } catch (error) {
+        console.error('Error loading form status:', error)
+      }
+    }
+
+    if (data?.business?.id) {
+      loadFormStatus()
+    }
+  }, [data?.business?.id])
+
+  // Handle ESC key for closing modals
+  useEffect(() => {
+    const handleEscKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        if (showTemplates) {
+          setShowTemplates(false)
+        }
+      }
+    }
+
+    document.addEventListener('keydown', handleEscKey)
+    return () => {
+      document.removeEventListener('keydown', handleEscKey)
+    }
+  }, [showTemplates])
+
+  const handleDeleteField = (index: number) => {
+    const newFields = formFields.filter((_, i) => i !== index)
+    setFormFields(newFields)
+
+    // Auto-save after deletion
+    const formData = {
+      title: formTitle,
+      description: formDescription,
+      fields: newFields
+    }
+    handleFormSave(formData)
+  }
+
   const handleAddFieldFromModal = () => {
     setShowAddItemModal(false)
     handleAddField()
@@ -128,11 +265,7 @@ export function FormBuilder({ data, onDataUpdate }: FormBuilderProps) {
     setSelectedProducts(prev => prev.filter(p => p.id !== productId))
   }
 
-  const handleDeleteField = (index: number) => {
-    const newFields = formFields.filter((_, i) => i !== index)
-    setFormFields(newFields)
-    handleAutoSave()
-  }
+
 
   // Auto-save functionality
   const handleAutoSave = async () => {
@@ -193,194 +326,372 @@ export function FormBuilder({ data, onDataUpdate }: FormBuilderProps) {
   }, [data.business.id])
 
   return (
-    <div className="flex gap-6 max-w-7xl mx-auto">
-      {/* Main Content */}
-      <div className="flex-1 space-y-6">
+    <div className="max-w-5xl mx-auto h-screen relative">
+      {/* Main Content - Scrollable with right margin for fixed preview */}
+      <div className="space-y-6 overflow-y-auto pr-96 mr-6">
         {/* Business Header */}
         <BusinessHeader business={data.business} socialLinks={data.socialLinks} />
 
-      {/* Add Button */}
-      <div className="flex justify-center">
-        <Button
-          onClick={() => setShowAddItemModal(true)}
-          className="w-full max-w-md h-12 text-white font-medium rounded-full bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 shadow-lg"
-          size="lg"
-        >
-          <Plus className="w-5 h-5 mr-2" />
-          Add
-        </Button>
-      </div>
-
-      {/* Action Buttons Row */}
-      <div className="flex justify-start items-center">
-        <Button
-          variant="ghost"
-          onClick={() => setShowTemplates(!showTemplates)}
-          className="flex items-center gap-2 text-gray-600 hover:text-gray-900"
-        >
-          <Package className="w-4 h-4" />
-          Templates
-        </Button>
-      </div>
-
-      {/* Templates Section */}
-      {showTemplates && (
-        <div className="bg-white border border-gray-200 rounded-lg p-6">
-          <FormTemplates onTemplateSelect={handleTemplateSelect} />
-        </div>
-      )}
-
-      {/* Form Editor Section */}
-      <div className="bg-white rounded-lg">
-        {/* Auto-save indicator */}
-        {isAutoSaving && (
-          <div className="flex justify-end p-4 pb-0">
-            <span className="text-xs text-gray-400 flex items-center gap-1">
-              <div className="w-2 h-2 bg-gray-400 rounded-full animate-pulse"></div>
-              Saving...
-            </span>
-          </div>
-        )}
-
-        {/* Form Title Section */}
-        <div className="p-4">
-          <div className="flex items-center gap-2 mb-2">
-            <Edit className="w-4 h-4 text-gray-400" />
-            <span className="text-sm font-medium text-gray-700">Form Title</span>
-          </div>
-          <input
-            type="text"
-            value={formTitle}
-            onChange={(e) => setFormTitle(e.target.value)}
-            placeholder="Add form title"
-            className="w-full text-lg font-medium text-gray-900 bg-transparent border-none outline-none placeholder-gray-400"
-          />
-        </div>
-
-        {/* Form Description */}
-        <div className="p-4">
-          <textarea
-            value={formDescription}
-            onChange={(e) => setFormDescription(e.target.value)}
-            placeholder="Add a new field or drag and drop an existing field into this form."
-            className="w-full text-sm text-gray-600 bg-transparent border-none outline-none resize-none placeholder-gray-400"
-            rows={2}
-          />
-        </div>
-
-        {/* Form Fields */}
-        <div className="p-4 space-y-3">
-          {formFields.map((field: any, index: number) => (
-            <div
-              key={field.id}
-              className="flex items-center justify-between p-3 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 transition-colors"
-            >
-              <div
-                className="flex items-center gap-3 flex-1 cursor-pointer"
-                onClick={() => handleEditField(index)}
-              >
-                <div className="w-6 h-6 bg-gray-200 rounded flex items-center justify-center">
-                  <Edit className="w-3 h-3 text-gray-700" />
+        {/* Publish Form Section */}
+        <Card className="shadow-sm bg-white border-2 border-gray-200">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
+                  {isFormPublished ? (
+                    <Eye className="w-5 h-5 text-green-600" />
+                  ) : (
+                    <EyeOff className="w-5 h-5 text-gray-600" />
+                  )}
                 </div>
                 <div>
-                  <div className="font-medium text-gray-900">{field.label}</div>
-                  <div className="text-xs text-gray-500">
-                    {field.type} {field.required && '• Required'}
-                  </div>
+                  <h3 className="text-lg font-semibold text-gray-900">Publish your form</h3>
+                  <p className="text-sm text-gray-600 mt-1">
+                    {isFormPublished
+                      ? "Your form is currently public."
+                      : "Your form is currently private."
+                    }
+                  </p>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center">
+                <Switch
+                  checked={isFormPublished}
+                  onCheckedChange={handleFormPublishToggle}
+                  className="data-[state=checked]:bg-[#c586e9]"
+                />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Forms Section Title */}
+        <div className="mb-4">
+          <h2 className="text-2xl font-bold text-gray-900">Forms</h2>
+        </div>
+
+        {/* Unified Header Card */}
+        <Card className="shadow-sm border-2 border-gray-200">
+          <CardHeader className="pb-4">
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                {!isEditingHeader ? (
+                  <div>
+                    <CardTitle className="text-xl text-gray-900 mb-1">
+                      {formTitle || "Form Title"}
+                    </CardTitle>
+                    <CardDescription className="text-base text-gray-600 mt-1 leading-relaxed">
+                      {formDescription || "Form Description"}
+                    </CardDescription>
+                  </div>
+                ) : (
+                  <div className="space-y-6 w-full">
+                    {/* Title and Description Editing */}
+                    <div className="space-y-4 max-w-md">
+                      <div>
+                        <Label htmlFor="title" className="text-xl font-semibold text-gray-900 mb-2 block">
+                          Form Title
+                        </Label>
+                        <Input
+                          id="title"
+                          value={tempTitle}
+                          onChange={(e) => setTempTitle(e.target.value)}
+                          placeholder="Enter Form title"
+                          className="mt-1 text-xl h-14 px-4 w-full border-2 focus:border-[#c586e9]"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="description" className="text-xl font-semibold text-gray-900 mb-2 block">
+                          Form Description
+                        </Label>
+                        <Input
+                          id="description"
+                          value={tempDescription}
+                          onChange={(e) => setTempDescription(e.target.value)}
+                          placeholder="Enter form description"
+                          className="mt-1 text-base font-medium h-12 px-4 w-full border-2 focus:border-[#c586e9]"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Form Edit Toolbar - Positioned directly beneath description */}
+                    <div className="flex items-center justify-between pt-4">
+                      <div className="flex items-center gap-3">
+                        <Button
+                          onClick={() => setShowAddItemModal(true)}
+                          className="flex items-center gap-2"
+                        >
+                          <Plus className="w-4 h-4" />
+                          Add Field
+                        </Button>
+                        <Button
+                          variant="outline"
+                          onClick={() => setShowTemplates(!showTemplates)}
+                          className="flex items-center gap-2"
+                        >
+                          <Package className="w-4 h-4" />
+                          Templates
+                        </Button>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-8 w-8 p-0"
+                          disabled
+                        >
+                          <Undo className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-8 w-8 p-0"
+                          disabled
+                        >
+                          <Redo className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          onClick={handleCancelHeader}
+                          className="flex items-center gap-2 text-white"
+                          style={{ backgroundColor: '#c586e9' }}
+                        >
+                          <X className="w-4 h-4" />
+                          Close
+                        </Button>
+                        <Button
+                          onClick={handleSaveHeader}
+                          disabled={isSavingForm}
+                          className="flex items-center gap-2 text-white"
+                          style={{ backgroundColor: '#c586e9' }}
+                        >
+                          <Save className="w-4 h-4" />
+                          Save
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* Form Fields inside edit mode */}
+                    <div className="border-t-2 border-gray-200 pt-4">
+                      <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-lg font-semibold text-gray-900">Form Fields</h3>
+                        {isAutoSaving && (
+                          <span className="text-xs text-gray-400 flex items-center gap-1">
+                            <div className="w-2 h-2 bg-gray-400 rounded-full animate-pulse"></div>
+                            Saving...
+                          </span>
+                        )}
+                      </div>
+                      <div className="space-y-3">
+                        {formFields.map((field: any, index: number) => (
+                          <Card key={field.id} className="border-2 border-gray-200 hover:border-gray-300 transition-colors">
+                            <CardContent className="p-4">
+                              <div className="flex items-center justify-between">
+                                <div
+                                  className="flex items-center gap-3 flex-1 cursor-pointer"
+                                  onClick={() => handleEditField(index)}
+                                >
+                                  <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center">
+                                    <Edit className="w-4 h-4 text-gray-600" />
+                                  </div>
+                                  <div>
+                                    <div className="font-medium text-gray-900">{field.label}</div>
+                                    <div className="text-sm text-gray-500">
+                                      {field.type} {field.required && '• Required'}
+                                    </div>
+                                  </div>
+                                </div>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    handleDeleteField(index)
+                                  }}
+                                  className="text-red-600 hover:text-red-700 hover:bg-red-50 h-8 w-8 p-0"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        ))}
+
+                        {/* Add Field Prompt */}
+                        {formFields.length === 0 && (
+                          <div className="text-center py-12 text-gray-500">
+                            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                              <Plus className="w-8 h-8 text-gray-400" />
+                            </div>
+                            <p className="font-medium">No fields added yet</p>
+                            <p className="text-sm mt-1">Click the "Add Field" button to create your first field</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+              {!isEditingHeader && (
+                <div className="flex items-center gap-2 ml-4">
+                  <Button
+                    size="sm"
+                    onClick={handleEditHeader}
+                    className="flex items-center gap-2 text-white"
+                    style={{ backgroundColor: '#c586e9' }}
+                  >
+                    <Edit className="w-4 h-4" />
+                    Edit
+                  </Button>
+                </div>
+              )}
+            </div>
+          </CardHeader>
+        </Card>
+
+        {/* Templates Modal */}
+        {showTemplates && (
+          <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center justify-between p-6 border-b-2 border-gray-200">
+                <h2 className="text-xl font-bold text-gray-900">Choose a Template</h2>
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    handleDeleteField(index)
-                  }}
-                  className="text-red-600 hover:text-red-700 hover:bg-red-50 h-8 w-8 p-0"
+                  onClick={() => setShowTemplates(false)}
+                  className="h-8 w-8 p-0"
                 >
-                  <Trash2 className="w-4 h-4" />
+                  <X className="w-4 h-4" />
                 </Button>
-                <div className="w-2 h-2 bg-gray-300 rounded"></div>
               </div>
-            </div>
-          ))}
-
-          {/* Add Field Prompt */}
-          {formFields.length === 0 && (
-            <div className="text-center py-8 text-gray-500">
-              <Plus className="w-8 h-8 mx-auto mb-2 text-gray-300" />
-              <p>No fields added yet</p>
-              <p className="text-sm">Click the Add button to create your first field</p>
-            </div>
-          )}
-        </div>
-
-        {/* Products Section - Only show if products are selected */}
-        {selectedProducts.length > 0 && (
-          <div className="border-t border-gray-200">
-            <div className="p-4">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="font-medium text-gray-900">Products</h3>
-                <Badge variant="secondary">{selectedProducts.length}</Badge>
-              </div>
-              <div className="space-y-2">
-                {selectedProducts.map((product) => {
-                  const activePricing = product.pricing?.find(p => p.is_active)
-                  return (
-                    <div
-                      key={product.id}
-                      className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
-                    >
-                      <div className="flex items-center gap-3">
-                        {product.product_image ? (
-                          <img
-                            src={product.product_image}
-                            alt={product.name}
-                            className="w-8 h-8 object-cover rounded"
-                          />
-                        ) : (
-                          <Package className="w-8 h-8 text-gray-400" />
-                        )}
-                        <div>
-                          <span className="text-sm font-medium text-gray-700">{product.name}</span>
-                          {activePricing && (
-                            <div className="text-xs text-gray-500">
-                              {activePricing.currency} {activePricing.price.toFixed(2)}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleRemoveProduct(product.id)}
-                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                      >
-                        <Trash2 className="w-3 h-3" />
-                      </Button>
-                    </div>
-                  )
-                })}
+              <div className="p-6">
+                <FormTemplates onTemplateSelect={handleTemplateSelect} />
               </div>
             </div>
           </div>
         )}
+
+        {/* Product Section Title */}
+        <div className="mb-4">
+          <h2 className="text-2xl font-bold text-gray-900">Products</h2>
+        </div>
+
+        {/* Product Section */}
+        <Card className="shadow-sm border-2 border-gray-200">
+          <CardHeader className="pb-4">
+            <div className="flex items-center justify-between mb-4">
+              <CardTitle className="text-2xl font-bold text-gray-900">Product Section</CardTitle>
+              <div className="flex items-center gap-3">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 w-8 p-0"
+                  disabled
+                >
+                  <ArrowUpDown className="w-4 h-4" />
+                </Button>
+                <Button
+                  className="flex items-center gap-2 text-white"
+                  style={{ backgroundColor: '#c586e9' }}
+                  disabled
+                >
+                  <Plus className="w-4 h-4" />
+                  Add Product
+                </Button>
+              </div>
+            </div>
+
+            {/* Product List Header */}
+            <div className="border-t-2 border-gray-200 pt-4">
+              <CardTitle className="text-xl font-semibold text-gray-900">Product list</CardTitle>
+            </div>
+          
+
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {selectedProducts.length > 0 ? (
+              selectedProducts.map((product) => {
+                const activePricing = product.pricing?.find(p => p.is_active)
+                return (
+                  <Card key={product.id} className="border-2 border-gray-200 hover:border-gray-300 transition-colors">
+                    <CardContent className="p-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                          <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden">
+                            {product.product_image ? (
+                              <img
+                                src={product.product_image}
+                                alt={product.name}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <Package className="w-6 h-6 text-gray-400" />
+                            )}
+                          </div>
+                          <div className="flex-1">
+                            <div className="font-medium text-gray-900">{product.name}</div>
+                            <div className="text-sm text-gray-500 mt-1">Product description</div>
+                            {activePricing && (
+                              <div className="text-sm font-medium text-gray-900 mt-1">
+                                {activePricing.currency} {activePricing.price.toFixed(2)}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 w-8 p-0 text-gray-400 hover:text-gray-600"
+                            disabled
+                          >
+                            <Edit className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 w-8 p-0 text-gray-400 hover:text-gray-600"
+                            disabled
+                          >
+                            <Eye className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleRemoveProduct(product.id)}
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50 h-8 w-8 p-0"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )
+              })
+            ) : (
+              <div className="text-center py-12 text-gray-500">
+                <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Package className="w-8 h-8 text-gray-400" />
+                </div>
+                <p className="font-medium">No products added yet</p>
+                <p className="text-sm mt-1">Products will appear here when you add them to your form</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
 
-      </div>
-
-      {/* Live Preview - Always Visible */}
-      <div className="w-80 flex-shrink-0">
-        <LivePreview
-          businessSlug={data.business.slug}
-          previewEnabled={true}
-          previewRefreshKey={previewRefreshKey}
-          isCollapsed={false}
-          onToggleCollapse={() => {}}
-          onEnablePreview={() => {}}
-        />
-      </div>
+      {/* Fixed Live Preview */}
+      <LivePreview
+        businessSlug={data.business.slug}
+        previewEnabled={true}
+        previewRefreshKey={previewRefreshKey}
+        isCollapsed={false}
+        onToggleCollapse={() => {}}
+        onEnablePreview={() => {}}
+        data={data}
+      />
 
       {/* Modals */}
       <AddItemModal
@@ -410,6 +721,7 @@ export function FormBuilder({ data, onDataUpdate }: FormBuilderProps) {
         onFieldTypeChange={handleFieldTypeChange}
       />
 
+      <Toaster />
     </div>
   )
 }

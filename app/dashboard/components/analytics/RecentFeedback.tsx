@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { MessageSquare, Star, Copy } from "lucide-react"
 import type { DashboardStats } from "../../types/dashboard"
+import { extractDataWithFallback } from "@/lib/field-categorization"
 
 interface RecentFeedbackProps {
   stats: DashboardStats
@@ -24,32 +25,39 @@ export function RecentFeedback({ stats }: RecentFeedbackProps) {
       <CardContent>
         {stats.recentFeedback.length > 0 ? (
           <div className="space-y-4">
-            {stats.recentFeedback.map((feedback) => (
-              <div key={feedback.id} className="p-4 border rounded-lg">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-2">
-                      <div className="flex">
-                        {[...Array(5)].map((_, i) => (
-                          <Star
-                            key={i}
-                            className={`h-4 w-4 ${
-                              i < (feedback.rating || 0)
-                                ? "text-yellow-400 fill-current"
-                                : "text-gray-300"
-                            }`}
-                          />
-                        ))}
+            {stats.recentFeedback.map((feedback) => {
+              // Extract rating and feedback text using enhanced field categorization
+              const extractedData = extractDataWithFallback(feedback.submission_data || {})
+              const rating = feedback.rating || extractedData.rating || 0
+              const feedbackText = feedback.feedback || extractedData.feedbackText || "No feedback text provided"
+
+              return (
+                <div key={feedback.id} className="p-4 border rounded-lg">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="flex">
+                          {[...Array(5)].map((_, i) => (
+                            <Star
+                              key={i}
+                              className={`h-4 w-4 ${
+                                i < rating
+                                  ? "text-yellow-400 fill-current"
+                                  : "text-gray-300"
+                              }`}
+                            />
+                          ))}
+                        </div>
+                        <span className="text-sm text-gray-500">
+                          {new Date(feedback.submitted_at).toLocaleDateString()}
+                        </span>
                       </div>
-                      <span className="text-sm text-gray-500">
-                        {new Date(feedback.submitted_at).toLocaleDateString()}
-                      </span>
+                      <p className="text-gray-700">{feedbackText}</p>
                     </div>
-                    <p className="text-gray-700">{feedback.feedback || "No feedback text provided"}</p>
                   </div>
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         ) : (
           <div className="text-center py-12">

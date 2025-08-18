@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { verifyToken } from "@/lib/auth"
 import { db } from "@/lib/database-adapter"
+import { extractDataWithFallback } from "@/lib/field-categorization"
 
 interface IssueAnalysis {
   issue: string
@@ -89,7 +90,7 @@ export async function GET(request: NextRequest) {
               issueAnalysis[issueKey].recentSubmissions.push({
                 id: submission.id,
                 submitter,
-                feedback: submission.submission_data.feedback || 'No feedback text',
+                feedback: extractDataWithFallback(submission.submission_data || {}).feedbackText || 'No feedback text',
                 rating: rating,
                 submitted_at: submission.submitted_at
               })

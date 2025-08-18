@@ -38,13 +38,13 @@ export interface SocialPlatform {
 export const SOCIAL_PLATFORMS: Record<string, SocialPlatform> = {
   website: {
     id: 'website',
-    name: 'Website',
+    name: 'Other Website',
     icon: Globe,
     baseUrl: '',
     urlPattern: /^https?:\/\/.+\..+/,
     placeholder: 'https://yourwebsite.com',
     description: 'Your business website or homepage',
-    category: 'other',
+    category: 'more',
     color: '#6366f1',
     validation: {
       required: true,
@@ -270,7 +270,7 @@ export const PLATFORM_CATEGORIES = {
   professional: { name: 'Professional', platforms: ['linkedin', 'github'] },
   content: { name: 'Content', platforms: ['youtube'] },
   contact: { name: 'Contact', platforms: ['email', 'phone', 'whatsapp'] },
-  other: { name: 'Other', platforms: ['website'] }
+  more: { name: 'More', platforms: ['website'] }
 }
 
 export function validateSocialUrl(platform: string, url: string): string | null {
