@@ -7,7 +7,6 @@ import {
   Users,
   TrendingUp,
   TrendingDown,
-  Minus,
   BarChart3,
   Search,
   Star,
@@ -79,7 +78,7 @@ export function AudienceTab() {
       </div>
 
       {/* Overview Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
@@ -100,18 +99,6 @@ export function AudienceTab() {
                 <p className="text-2xl font-bold text-green-600">{audienceData?.overviewStats?.promoters || 0}</p>
               </div>
               <TrendingUp className="h-8 w-8 text-green-600" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Passives</p>
-                <p className="text-2xl font-bold text-yellow-600">{audienceData?.overviewStats?.passives || 0}</p>
-              </div>
-              <Minus className="h-8 w-8 text-yellow-600" />
             </div>
           </CardContent>
         </Card>

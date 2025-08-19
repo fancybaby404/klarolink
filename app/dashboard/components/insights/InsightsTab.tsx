@@ -10,8 +10,7 @@ import {
   Users,
   Star,
   AlertTriangle,
-  Package,
-  Clock
+  Package
 } from "lucide-react"
 import type { DashboardData } from "../../types/dashboard"
 import { extractDataWithFallback } from "@/lib/field-categorization"
@@ -595,11 +594,6 @@ export function InsightsTab({ data }: InsightsTabProps) {
                     )}
                   </div>
                 ))}
-                <div className="mt-4 p-3 bg-blue-50 rounded-lg">
-                  <p className="text-sm text-blue-700">
-                    📊 Analyzed {issuesData.totalSubmissions} submissions • {issuesData.negativeSubmissions} negative feedback
-                  </p>
-                </div>
               </div>
             ) : (
               <div className="text-center py-8">
@@ -711,62 +705,7 @@ export function InsightsTab({ data }: InsightsTabProps) {
         </div>
       )}
 
-      {/* Enhanced Recent Activity */}
-      {enhancedAnalytics?.recentActivity && enhancedAnalytics.recentActivity.length > 0 && (
-        <div className="mt-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Clock className="h-5 w-5 text-gray-600" />
-                Recent Activity
-              </CardTitle>
-              <CardDescription>
-                Latest feedback and product reviews from your customers
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {enhancedAnalytics.recentActivity.slice(0, 8).map((activity: any, index: number) => (
-                  <div key={index} className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                      activity.type === 'product_review' ? 'bg-purple-100' : 'bg-blue-100'
-                    }`}>
-                      {activity.type === 'product_review' ?
-                        <Package className="h-4 w-4 text-purple-600" /> :
-                        <MessageSquare className="h-4 w-4 text-blue-600" />
-                      }
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="text-sm font-medium text-gray-900">
-                          {activity.type === 'product_review' ? 'Product Review' : 'General Feedback'}
-                        </span>
-                        {activity.rating && (
-                          <div className="flex items-center gap-1">
-                            <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
-                            <span className="text-xs text-gray-600">{activity.rating}</span>
-                          </div>
-                        )}
-                      </div>
-                      {activity.productName && (
-                        <p className="text-xs text-purple-600 mb-1">Product: {activity.productName}</p>
-                      )}
-                      {(activity.feedback || activity.comment) && (
-                        <p className="text-sm text-gray-600 line-clamp-2">
-                          {activity.feedback || activity.comment}
-                        </p>
-                      )}
-                      <p className="text-xs text-gray-400 mt-1">
-                        {new Date(activity.date).toLocaleDateString()}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
+
     </div>
   )
 }

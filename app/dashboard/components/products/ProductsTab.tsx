@@ -61,7 +61,12 @@ export function ProductsTab({ data, onDataUpdate, onProductsSelected }: Products
   const loadEnabledProducts = async () => {
     try {
       const token = localStorage.getItem("token")
-      if (!token) return
+      if (!token) {
+        console.error("❌ No token found for loading enabled products")
+        return
+      }
+
+      console.log("🔄 Loading enabled products...")
 
       const response = await fetch(`/api/products/enabled`, {
         headers: {
@@ -69,33 +74,54 @@ export function ProductsTab({ data, onDataUpdate, onProductsSelected }: Products
         },
       })
 
+      console.log("📡 Load response status:", response.status)
+
       if (response.ok) {
         const result = await response.json()
         const enabledProductIds = result.enabledProducts || []
 
+        console.log("📊 API returned enabled products:", enabledProductIds)
+        console.log("📊 Current selectedProducts count:", selectedProducts.length)
+
         // Update selection state based on enabled products
-        setSelectedProducts(prev =>
-          prev.map(p => ({
+        setSelectedProducts(prev => {
+          const updated = prev.map(p => ({
             ...p,
             selected: enabledProductIds.includes(p.id)
           }))
-        )
 
-        console.log(`📊 Loaded ${enabledProductIds.length} enabled products`)
+          console.log("📊 Updated selection state:", updated.map(p => ({ id: p.id, name: p.name, selected: p.selected })))
+          return updated
+        })
+
+        console.log(`✅ Loaded ${enabledProductIds.length} enabled products`)
+      } else {
+        const errorText = await response.text()
+        console.error("❌ Failed to load enabled products:", response.status, errorText)
       }
     } catch (error) {
-      console.error("Error loading enabled products:", error)
+      console.error("❌ Error loading enabled products:", error)
     }
   }
 
   const saveEnabledProducts = async () => {
     try {
       const token = localStorage.getItem("token")
-      if (!token) return
+      if (!token) {
+        console.error("❌ No token found")
+        return false
+      }
 
       const enabledProductIds = selectedProducts
         .filter(p => p.selected)
         .map(p => p.id)
+
+      console.log("🔄 Saving enabled products:", enabledProductIds)
+      console.log("📊 Total products:", selectedProducts.length)
+      console.log("📊 Selected products:", selectedProducts.filter(p => p.selected).length)
+
+      const requestBody = { enabledProductIds }
+      console.log("📝 Request body:", JSON.stringify(requestBody))
 
       const response = await fetch(`/api/products/enabled`, {
         method: 'POST',
@@ -103,25 +129,33 @@ export function ProductsTab({ data, onDataUpdate, onProductsSelected }: Products
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ enabledProductIds })
+        body: JSON.stringify(requestBody)
       })
+
+      console.log("📡 Response status:", response.status)
 
       if (response.ok) {
         const result = await response.json()
-        console.log(`✅ Saved ${enabledProductIds.length} enabled products`)
+        console.log("✅ Enabled products saved successfully:", result)
 
         // Show success feedback
         if (onDataUpdate) {
           onDataUpdate()
         }
 
+        // Reload enabled products to verify the save worked
+        setTimeout(() => {
+          loadEnabledProducts()
+        }, 500)
+
         return true
       } else {
-        console.error('Failed to save enabled products')
+        const errorText = await response.text()
+        console.error("❌ Failed to save enabled products:", response.status, errorText)
         return false
       }
     } catch (error) {
-      console.error("Error saving enabled products:", error)
+      console.error("❌ Error saving enabled products:", error)
       return false
     }
   }
@@ -223,57 +257,63 @@ export function ProductsTab({ data, onDataUpdate, onProductsSelected }: Products
 
       {/* Products Selection Grid */}
       {products.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {filteredProducts.map((product) => {
             const isSelected = selectedProducts.find(sp => sp.id === product.id)?.selected || false
             return (
               <Card
                 key={product.id}
-                className={`cursor-pointer transition-all duration-200 ${
+                className={`cursor-pointer transition-all duration-200 h-full flex flex-col ${
                   isSelected
-                    ? 'ring-2 ring-primary bg-primary/5 shadow-md'
-                    : 'hover:shadow-md hover:border-gray-300'
+                    ? 'ring-2 ring-primary bg-primary/5 shadow-lg border-primary/20'
+                    : 'hover:shadow-lg hover:border-gray-300 hover:-translate-y-1'
                 }`}
                 onClick={() => handleProductSelect(product.id)}
               >
-                <CardHeader className="pb-3">
+                <CardHeader className="pb-3 flex-shrink-0">
                   <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start gap-3">
                         <Checkbox
                           checked={isSelected}
                           onCheckedChange={() => handleProductSelect(product.id)}
-                          className="pointer-events-none"
+                          className="pointer-events-none mt-1 flex-shrink-0"
                         />
-                        <CardTitle className="text-lg">{product.name}</CardTitle>
+                        <div className="flex-1 min-w-0">
+                          <CardTitle className="text-lg leading-tight line-clamp-2">{product.name}</CardTitle>
+                          <div className="flex flex-wrap gap-2 mt-2">
+                            {product.category && (
+                              <Badge variant="secondary" className="text-xs">
+                                {product.category}
+                              </Badge>
+                            )}
+                            {isSelected && (
+                              <Badge variant="default" className="text-xs bg-primary">
+                                ✓ Selected
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
                       </div>
-                      {product.category && (
-                        <Badge variant="secondary" className="mt-2">
-                          {product.category}
-                        </Badge>
-                      )}
-                      {isSelected && (
-                        <Badge variant="default" className="mt-1 bg-primary">
-                          Selected
-                        </Badge>
-                      )}
                     </div>
                   </div>
                 </CardHeader>
-                <CardContent>
-                  {product.product_image ? (
-                    <img
-                      src={product.product_image}
-                      alt={product.name}
-                      className="w-full h-32 object-cover rounded-md mb-3"
-                    />
-                  ) : (
-                    <div className="w-full h-32 bg-gray-100 rounded-md mb-3 flex items-center justify-center">
-                      <ImageIcon className="h-8 w-8 text-gray-400" />
-                    </div>
-                  )}
+                <CardContent className="flex-1 flex flex-col">
+                  <div className="flex-shrink-0 mb-3">
+                    {product.product_image ? (
+                      <img
+                        src={product.product_image}
+                        alt={product.name}
+                        className="w-full h-40 object-cover rounded-lg shadow-sm"
+                      />
+                    ) : (
+                      <div className="w-full h-40 bg-gradient-to-br from-gray-100 to-gray-200 rounded-lg flex items-center justify-center">
+                        <ImageIcon className="h-12 w-12 text-gray-400" />
+                      </div>
+                    )}
+                  </div>
                   {product.description && (
-                    <p className="text-sm text-subheader line-clamp-3 mt-2">{product.description}</p>
+                    <p className="text-sm text-gray-600 line-clamp-3 leading-relaxed flex-1">{product.description}</p>
                   )}
                 </CardContent>
               </Card>
@@ -295,40 +335,47 @@ export function ProductsTab({ data, onDataUpdate, onProductsSelected }: Products
         </Card>
       )}
 
-      {/* Selection Summary */}
-      {selectedCount > 0 && (
-        <Card className="bg-primary/5 border-primary/20">
-          <CardContent className="py-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h4 className="font-medium text-header">Selected Products</h4>
-                <p className="text-sm text-subheader">
-                  {selectedCount} product{selectedCount !== 1 ? 's' : ''} selected for customer feedback
-                </p>
-              </div>
-              <div className="flex gap-2">
-                <button
-                  onClick={async () => {
-                    const selectedData = getSelectedProductsData()
-                    console.log('Selected products:', selectedData)
-
-                    // Save enabled products to database
-                    const saved = await saveEnabledProducts()
-
-                    if (saved) {
-                      // Call the callback with selected products
-                      onProductsSelected?.(selectedData)
-                    }
-                  }}
-                  className="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/90 transition-colors"
-                >
-                  Enable for Feedback Page
-                </button>
-              </div>
+      {/* Selection Summary & Save Button */}
+      <Card className={selectedCount > 0 ? "bg-primary/5 border-primary/20" : "bg-gray-50 border-gray-200"}>
+        <CardContent className="py-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h4 className="font-medium text-header">
+                {selectedCount > 0 ? 'Selected Products' : 'Products Configuration'}
+              </h4>
+              <p className="text-sm text-subheader">
+                {selectedCount > 0
+                  ? `${selectedCount} product${selectedCount !== 1 ? 's' : ''} selected for customer feedback`
+                  : 'No products selected - Products tab will be disabled on feedback page'
+                }
+              </p>
             </div>
-          </CardContent>
-        </Card>
-      )}
+            <div className="flex gap-2">
+              <button
+                onClick={async () => {
+                  const selectedData = getSelectedProductsData()
+                  console.log('Selected products:', selectedData)
+
+                  // Save enabled products to database
+                  const saved = await saveEnabledProducts()
+
+                  if (saved) {
+                    // Call the callback with selected products
+                    onProductsSelected?.(selectedData)
+                  }
+                }}
+                className={`px-4 py-2 text-white rounded-md transition-colors ${
+                  selectedCount > 0
+                    ? 'bg-primary hover:bg-primary/90'
+                    : 'bg-gray-600 hover:bg-gray-700'
+                }`}
+              >
+                {selectedCount > 0 ? 'Enable for Feedback Page' : 'Disable Products Tab'}
+              </button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
     </div>
   )

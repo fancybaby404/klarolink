@@ -247,10 +247,7 @@ export function FormBuilder({ data, onDataUpdate }: FormBuilderProps) {
           onDataUpdate(updatedData)
         }
 
-        // Reload the form status to ensure UI is in sync with database
-        setTimeout(() => {
-          loadFormStatus()
-        }, 500)
+        // No need to reload status - API call was successful and state is already updated
       } else {
         // Revert UI state on error
         setIsFormPublished(!checked)
