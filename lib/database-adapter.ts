@@ -552,15 +552,7 @@ export interface DatabaseAdapter {
   createOrUpdateCustomerProfile(businessId: number, email: string, data: Partial<CustomerProfile>): Promise<CustomerProfile>
   getCustomerSegments(businessId: number): Promise<CustomerSegment[]>
 
-  // Referral and Gamification System
-  createReferral(referrerUserId: number, businessId: number, referredEmail: string): Promise<{ referralCode: string; id: number }>
-  getReferralByCode(referralCode: string): Promise<any>
-  completeReferral(referralCode: string, referredUserId: number): Promise<void>
-  getUserPoints(userId: number, businessId: number): Promise<{ balance: number; totalEarned: number }>
-  getUserBadges(userId: number, businessId: number): Promise<any[]>
-  getGamificationSettings(businessId: number): Promise<any>
-  updateGamificationSettings(businessId: number, settings: any): Promise<void>
-  getUserReferrals(userId: number, businessId: number): Promise<any[]>
+  // Removed gamification and referral system
   trackSocialShare(userId: number | null, businessId: number, platform: string, url: string, referralCode?: string): Promise<void>
   getLeaderboard(businessId: number, type: 'points' | 'referrals', limit?: number): Promise<any[]>
 
@@ -579,6 +571,12 @@ export interface DatabaseAdapter {
 
   // Direct query method for custom queries
   query?(sql: string, params?: any[]): Promise<any[]>
+
+  // Notification methods
+  getTaskNotifications?(filters?: any): Promise<any[]>
+  createTaskNotification?(data: any): Promise<any>
+  updateTaskNotification?(id: number, data: any): Promise<any>
+  deleteTaskNotification?(id: number): Promise<boolean>
 }
 
 // Mock database adapter for v0 preview environment
@@ -1247,25 +1245,7 @@ class MockDatabaseAdapter implements DatabaseAdapter {
     return this.mockUserBadges.filter(b => b.user_id === userId && b.business_id === businessId)
   }
 
-  async getGamificationSettings(businessId: number): Promise<any> {
-    return this.mockGamificationSettings.find(s => s.business_id === businessId) || {
-      business_id: businessId,
-      points_per_feedback: 10,
-      points_per_referral: 50,
-      welcome_bonus_points: 25,
-      gamification_enabled: true,
-      referral_enabled: true
-    }
-  }
-
-  async updateGamificationSettings(businessId: number, settings: any): Promise<void> {
-    const index = this.mockGamificationSettings.findIndex(s => s.business_id === businessId)
-    if (index >= 0) {
-      this.mockGamificationSettings[index] = { ...this.mockGamificationSettings[index], ...settings }
-    } else {
-      this.mockGamificationSettings.push({ business_id: businessId, ...settings })
-    }
-  }
+  // Gamification methods removed
 
   async getUserReferrals(userId: number, businessId: number): Promise<any[]> {
     return this.mockReferrals.filter(r => r.referrer_user_id === userId && r.business_id === businessId)
@@ -2203,50 +2183,7 @@ class NeonDatabaseAdapter implements DatabaseAdapter {
     }
   }
 
-  async getGamificationSettings(businessId: number): Promise<any> {
-    try {
-      const result = await this.query(`
-        SELECT * FROM gamification_settings WHERE business_id = $1
-      `, [businessId])
-
-      return result[0] || {
-        business_id: businessId,
-        points_per_feedback: 10,
-        points_per_referral: 50,
-        welcome_bonus_points: 25,
-        gamification_enabled: true,
-        referral_enabled: true
-      }
-    } catch (error) {
-      return mockDatabaseAdapter.getGamificationSettings(businessId)
-    }
-  }
-
-  async updateGamificationSettings(businessId: number, settings: any): Promise<void> {
-    try {
-      await this.query(`
-        INSERT INTO gamification_settings (business_id, points_per_feedback, points_per_referral, welcome_bonus_points, gamification_enabled, referral_enabled)
-        VALUES ($1, $2, $3, $4, $5, $6)
-        ON CONFLICT (business_id)
-        DO UPDATE SET
-          points_per_feedback = $2,
-          points_per_referral = $3,
-          welcome_bonus_points = $4,
-          gamification_enabled = $5,
-          referral_enabled = $6,
-          updated_at = NOW()
-      `, [
-        businessId,
-        settings.points_per_feedback,
-        settings.points_per_referral,
-        settings.welcome_bonus_points,
-        settings.gamification_enabled,
-        settings.referral_enabled
-      ])
-    } catch (error) {
-      return mockDatabaseAdapter.updateGamificationSettings(businessId, settings)
-    }
-  }
+  // Gamification methods removed
 
   async getUserReferrals(userId: number, businessId: number): Promise<any[]> {
     try {
@@ -2421,10 +2358,10 @@ class NeonDatabaseAdapter implements DatabaseAdapter {
         const submissionFrequency = customer.submissions.length / daysSinceFirst
         const engagementScore = Math.min(100, Math.round((submissionFrequency * 50) + (averageRating * 10)))
 
-        // Determine segments based on rating
+        // Determine segments based on rating (NPS methodology)
         const segments = []
         if (averageRating >= 4) segments.push('promoters')
-        else if (averageRating >= 3) segments.push('passives')
+        else if (averageRating === 3) segments.push('passives')
         else if (averageRating > 0) segments.push('detractors')
 
         return {

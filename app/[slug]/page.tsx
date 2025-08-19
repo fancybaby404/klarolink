@@ -15,8 +15,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog"
 import { Instagram, Twitter, Facebook, Linkedin, Youtube, Globe, Send, CheckCircle, Eye, Share2, Copy, QrCode, Gift, Trophy } from "lucide-react"
 import { useParams } from "next/navigation"
-import { ReferralWidget } from "@/components/referral-widget"
-import { GamificationDisplay } from "@/components/gamification-display"
+// Removed gamification imports
 import { SocialLinksDisplay, SocialLinksCompact } from "@/components/social-links-display"
 import { RegistrationModal } from "@/components/auth/registration-modal"
 import type { Business, FormField, SocialLink } from "@/lib/database"
@@ -78,8 +77,7 @@ export default function FeedbackPage() {
   const [loginError, setLoginError] = useState("")
   const [isLoggingIn, setIsLoggingIn] = useState(false)
   const [showRegistrationModal, setShowRegistrationModal] = useState(false)
-  const [referralCode, setReferralCode] = useState<string | null>(null)
-  const [showGamification, setShowGamification] = useState(false)
+  // Removed gamification state
   const [currentUser, setCurrentUser] = useState<any>(null)
 
   useEffect(() => {
@@ -87,19 +85,7 @@ export default function FeedbackPage() {
     const urlParams = new URLSearchParams(window.location.search)
     setIsPreviewMode(urlParams.get('preview') === 'true')
 
-    const refCode = urlParams.get('ref')
-    if (refCode) {
-      setReferralCode(refCode)
-      // Track referral click
-      fetch("/api/referrals/track", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          referralCode: refCode,
-          action: "click",
-        }),
-      })
-    }
+    // Removed referral tracking
 
     // Clear any existing user authentication to ensure clean start for public feedback session
     localStorage.removeItem("userToken")
@@ -259,7 +245,6 @@ export default function FeedbackPage() {
         },
         body: JSON.stringify({
           formData,
-          referralCode,
         }),
       })
 
@@ -278,7 +263,6 @@ export default function FeedbackPage() {
 
       const result = await response.json()
       setSubmitted(true)
-      setShowGamification(true)
 
       // Track form submission
       try {
@@ -532,28 +516,7 @@ export default function FeedbackPage() {
               us.
             </p>
 
-            {/* Gamification Display */}
-            {showGamification && currentUser && (
-              <div className="mb-6">
-                <GamificationDisplay
-                  userId={currentUser.id}
-                  businessId={data?.business.id}
-                  compact={true}
-                  showAnimation={true}
-                />
-              </div>
-            )}
-
-            {/* Referral Widget */}
-            {currentUser && data?.business && (
-              <div className="mb-6">
-                <ReferralWidget
-                  businessId={data.business.id}
-                  businessSlug={data.business.slug}
-                  businessName={data.business.name}
-                />
-              </div>
-            )}
+            {/* Removed gamification and referral widgets */}
 
             <Button
               onClick={() => window.location.reload()}

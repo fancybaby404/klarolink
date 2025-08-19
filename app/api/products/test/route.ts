@@ -41,9 +41,9 @@ export async function POST(request: NextRequest) {
     for (const productData of testProducts) {
       // Insert product
       const productQuery = `
-        INSERT INTO products (business_id, name, description, category, is_active)
-        VALUES ($1, $2, $3, $4, true)
-        RETURNING *
+        INSERT INTO products (business_id, product_name, product_description, product_category)
+        VALUES ($1, $2, $3, $4)
+        RETURNING product_id as id, product_name as name, product_description as description, product_category as category, created_at, updated_at
       `
 
       const productResult = await db.query!(productQuery, [

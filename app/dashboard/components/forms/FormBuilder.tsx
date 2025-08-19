@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd"
 
-import { Edit, Eye, EyeOff, Plus, Package, Trash2, Save, Undo, Redo, X, ArrowUpDown, GripVertical, FileText, ShoppingBag } from "lucide-react"
+import { Edit, Eye, EyeOff, Plus, Package, Trash2, Save, Undo, Redo, X, ArrowUpDown, GripVertical, FileText, ShoppingBag, ExternalLink, Globe, Lock } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { FormTemplates } from "./FormTemplates"
 import { FieldEditor } from "./FieldEditor"
@@ -200,7 +200,7 @@ export function FormBuilder({ data, onDataUpdate }: FormBuilderProps) {
         if (checked) {
           toast({
             title: "Form is now public",
-            description: "Your form is accessible at http://localhost:3000/skinbloom-2",
+            description: `Your form is accessible at ${window.location.origin}/${data.business.slug}`,
             duration: 3000,
           })
         } else {
@@ -781,7 +781,18 @@ export function FormBuilder({ data, onDataUpdate }: FormBuilderProps) {
                   </p>
                 </div>
               </div>
-              <div className="flex items-center">
+              <div className="flex items-center gap-3">
+                {isFormPublished && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => window.open(`${window.location.origin}/${data.business.slug}`, '_blank')}
+                    className="flex items-center gap-2"
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                    Open in New Tab
+                  </Button>
+                )}
                 <Switch
                   checked={isFormPublished}
                   onCheckedChange={handleFormPublishToggle}

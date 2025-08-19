@@ -27,6 +27,7 @@ import {
   Smartphone,
   Tablet
 } from "lucide-react"
+import { SimpleNotificationBell } from "@/components/admin/SimpleNotificationBell"
 import type { Business, FormField } from "@/lib/types"
 
 interface ProfileData {
@@ -357,6 +358,8 @@ export default function ProfilePage() {
               <p className="text-sm text-subheader">Customize your business profile and feedback form appearance</p>
             </div>
           </div>
+          <div className="flex items-center gap-4">
+            <SimpleNotificationBell userId="dashboard" />
           <Button
             onClick={handleSaveProfile}
             disabled={saving}

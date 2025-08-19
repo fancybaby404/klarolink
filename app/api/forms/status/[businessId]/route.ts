@@ -49,7 +49,7 @@ export async function GET(request: NextRequest, { params }: { params: { business
     }
 
     const statusQuery = `
-      SELECT is_published, id
+      SELECT preview_enabled as is_published, id
       FROM feedback_forms
       WHERE business_id = $1
     `

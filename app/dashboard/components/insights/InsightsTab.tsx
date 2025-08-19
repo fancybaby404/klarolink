@@ -99,9 +99,11 @@ export function InsightsTab({ data }: InsightsTabProps) {
 
   const fetchIssues = async () => {
     try {
+      setIssuesLoading(true)
       const token = localStorage.getItem("token")
       if (!token) return
 
+      console.log('🔍 Fetching issues data...')
       const response = await fetch("/api/dashboard/issues", {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -110,10 +112,13 @@ export function InsightsTab({ data }: InsightsTabProps) {
 
       if (response.ok) {
         const result = await response.json()
+        console.log('✅ Issues data received:', result)
         setIssuesData(result)
+      } else {
+        console.error('❌ Issues API error:', response.status, response.statusText)
       }
     } catch (error) {
-      // Error handling - could add toast notification here
+      console.error('❌ Error fetching issues:', error)
     } finally {
       setIssuesLoading(false)
     }

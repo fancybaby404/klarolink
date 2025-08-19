@@ -121,15 +121,7 @@ export default function LoginPage() {
 
 
 
-            <div className="mt-8 text-center space-y-2">
-              <Link href="#" className="text-[#3E7EF7] hover:text-[#CC79F0] text-sm font-medium">
-                Forgot password?
-              </Link>
-              <span className="text-[#5F5B62] mx-2">•</span>
-              <Link href="#" className="text-[#3E7EF7] hover:text-[#CC79F0] text-sm font-medium">
-                Forgot username?
-              </Link>
-            </div>
+            {/* Removed forgot password and username links */}
 
             <div className="mt-6 text-center">
               <p className="text-[#4A4A4A] text-sm">

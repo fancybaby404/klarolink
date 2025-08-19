@@ -11,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ArrowLeft, Plus, Trash2, Save } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
+import { SimpleNotificationBell } from "@/components/admin/SimpleNotificationBell"
 import type { FormField, SocialLink } from "@/lib/database"
 
 export default function CustomizePage() {
@@ -157,10 +158,13 @@ export default function CustomizePage() {
               </Link>
               <h1 className="text-xl font-semibold text-header">Customize Your Page</h1>
             </div>
-            <Button onClick={saveCustomization} disabled={saving} className="bg-primary text-primary-foreground hover:bg-primary/90">
-              <Save className="h-4 w-4 mr-2" />
-              {saving ? "Saving..." : "Save Changes"}
-            </Button>
+            <div className="flex items-center gap-4">
+              <SimpleNotificationBell userId="dashboard" />
+              <Button onClick={saveCustomization} disabled={saving} className="bg-primary text-primary-foreground hover:bg-primary/90">
+                <Save className="h-4 w-4 mr-2" />
+                {saving ? "Saving..." : "Save Changes"}
+              </Button>
+            </div>
           </div>
         </div>
       </header>

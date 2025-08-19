@@ -10,7 +10,7 @@ interface FeedbackLinkCardProps {
 }
 
 export function FeedbackLinkCard({ businessSlug, onPreviewClick }: FeedbackLinkCardProps) {
-  const feedbackUrl = `https://localhost:3000/${businessSlug}`
+  const feedbackUrl = `${window.location.origin}/${businessSlug}`
 
   const handleCopyLink = async () => {
     try {

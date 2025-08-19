@@ -54,9 +54,9 @@ export async function POST(request: NextRequest) {
 
     const updateQuery = `
       UPDATE feedback_forms
-      SET is_published = $1, updated_at = NOW()
+      SET preview_enabled = $1, updated_at = NOW()
       WHERE business_id = $2
-      RETURNING id, is_published
+      RETURNING id, preview_enabled as is_published
     `
 
     const result = await db.query(updateQuery, [isPublished, businessId])

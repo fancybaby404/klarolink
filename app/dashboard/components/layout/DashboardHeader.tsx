@@ -1,6 +1,7 @@
 "use client"
 
 import { SidebarTrigger } from "@/components/ui/sidebar"
+import { SimpleNotificationBell } from "@/components/admin/SimpleNotificationBell"
 import type { DashboardTab } from "../../types/dashboard"
 
 interface DashboardHeaderProps {
@@ -17,11 +18,19 @@ const tabTitles: Record<DashboardTab, string> = {
 export function DashboardHeader({ activeTab }: DashboardHeaderProps) {
   return (
     <header className="bg-white border-b border-shadow sticky top-0 z-10">
-      <div className="flex items-center gap-4 px-6 py-4">
-        <SidebarTrigger className="text-header hover:bg-shadow" />
-        <h1 className="text-xl font-semibold text-header">
-          {tabTitles[activeTab]}
-        </h1>
+      <div className="flex items-center justify-between px-6 py-4">
+        {/* Left Side - Sidebar Trigger and Title */}
+        <div className="flex items-center gap-4">
+          <SidebarTrigger className="text-header hover:bg-shadow" />
+          <h1 className="text-xl font-semibold text-header">
+            {tabTitles[activeTab]}
+          </h1>
+        </div>
+
+        {/* Right Side - Notification Bell */}
+        <div className="flex items-center gap-2">
+          <SimpleNotificationBell userId="dashboard" />
+        </div>
       </div>
     </header>
   )

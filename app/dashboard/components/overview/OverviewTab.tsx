@@ -4,6 +4,7 @@ import { StatsGrid } from "../analytics/StatsGrid"
 import { PerformanceSummary } from "../analytics/PerformanceSummary"
 import { RecentFeedback } from "../analytics/RecentFeedback"
 import { FeedbackLinkCard } from "../shared/FeedbackLinkCard"
+import { FormPreviewCard } from "./FormPreviewCard"
 import { QuickActions } from "../shared/QuickActions"
 import type { DashboardData, DashboardTab } from "../../types/dashboard"
 
@@ -19,6 +20,12 @@ export function OverviewTab({ data, onTabChange, onPreviewClick }: OverviewTabPr
       {/* Stats Grid */}
       <StatsGrid stats={data.stats} />
 
+      {/* Feedback Link - Always Visible */}
+      <FeedbackLinkCard
+        businessSlug={data.business.slug}
+        onPreviewClick={onPreviewClick}
+      />
+
       {/* Main Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Column - Performance and Recent Feedback */}
@@ -27,10 +34,10 @@ export function OverviewTab({ data, onTabChange, onPreviewClick }: OverviewTabPr
           <RecentFeedback stats={data.stats} />
         </div>
 
-        {/* Right Column - Quick Actions and Feedback Link */}
+        {/* Right Column - Form Preview and Quick Actions */}
         <div className="space-y-6">
-          <FeedbackLinkCard
-            businessSlug={data.business.slug}
+          <FormPreviewCard
+            data={data}
             onPreviewClick={onPreviewClick}
           />
           <QuickActions

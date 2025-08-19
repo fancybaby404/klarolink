@@ -68,29 +68,36 @@ export async function GET(request: NextRequest) {
 
     // Analyze each submission
     submissions.forEach(submission => {
-      const feedbackText = (submission.submission_data.feedback || '').toLowerCase()
-      const rating = submission.submission_data.rating || 5
-      const submitter = submission.submission_data.name || submission.submission_data.email || 'Anonymous'
+      // Use the enhanced extraction function
+      const extractedData = extractDataWithFallback(submission.submission_data || {})
+      const feedbackText = (extractedData.feedbackText || '').toLowerCase()
+      const rating = extractedData.rating || 5
+      const submitter = submission.submission_data?.name || submission.submission_data?.email || submission.email || 'Anonymous'
+
+      console.log(`🔍 Analyzing submission ${submission.id}: rating=${rating}, feedback="${feedbackText.substring(0, 50)}..."`)
 
       // Check for negative sentiment (rating <= 3 or negative keywords)
-      const isNegative = rating <= 3 || 
-        ['bad', 'terrible', 'awful', 'horrible', 'worst', 'hate', 'disappointed', 'frustrated'].some(word => 
+      const isNegative = rating <= 3 ||
+        ['bad', 'terrible', 'awful', 'horrible', 'worst', 'hate', 'disappointed', 'frustrated'].some(word =>
           feedbackText.includes(word)
         )
 
       if (isNegative || rating <= 3) {
+        console.log(`❗ Found negative feedback: rating=${rating}, isNegative=${isNegative}`)
+
         Object.entries(issueKeywords).forEach(([issueKey, keywords]) => {
           const hasKeyword = keywords.some(keyword => feedbackText.includes(keyword.toLowerCase()))
-          
+
           if (hasKeyword) {
+            console.log(`🎯 Found issue "${issueKey}" in feedback: ${feedbackText.substring(0, 100)}`)
             issueAnalysis[issueKey].count++
-            
+
             // Add to recent submissions if we have less than 3
             if (issueAnalysis[issueKey].recentSubmissions.length < 3) {
               issueAnalysis[issueKey].recentSubmissions.push({
                 id: submission.id,
                 submitter,
-                feedback: extractDataWithFallback(submission.submission_data || {}).feedbackText || 'No feedback text',
+                feedback: extractedData.feedbackText || 'No feedback text',
                 rating: rating,
                 submitted_at: submission.submitted_at
               })
@@ -131,6 +138,12 @@ export async function GET(request: NextRequest) {
       .filter(issue => issue.count > 0)
       .sort((a, b) => b.count - a.count)
       .slice(0, 5) // Top 5 issues
+
+    console.log(`📊 Issue analysis complete:`, {
+      totalSubmissions: submissions.length,
+      negativeSubmissions: totalNegativeSubmissions,
+      topIssues: topIssues.map(issue => ({ issue: issue.issue, count: issue.count }))
+    })
 
     return NextResponse.json({
       issues: topIssues,
