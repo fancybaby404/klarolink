@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Rating } from "@/components/ui/rating"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog"
@@ -18,13 +19,14 @@ import { useParams } from "next/navigation"
 // Removed gamification imports
 import { SocialLinksDisplay, SocialLinksCompact } from "@/components/social-links-display"
 import { RegistrationModal } from "@/components/auth/registration-modal"
-import type { Business, FormField, SocialLink } from "@/lib/database"
+import type { Business, FormField, SocialLink, Product } from "@/lib/database"
 import QRCode from "qrcode"
 
 interface FeedbackPageData {
   business: Business
   formFields: FormField[]
   socialLinks: SocialLink[]
+  products: Product[]
   previewEnabled: boolean
 }
 
@@ -79,6 +81,7 @@ export default function FeedbackPage() {
   const [showRegistrationModal, setShowRegistrationModal] = useState(false)
   // Removed gamification state
   const [currentUser, setCurrentUser] = useState<any>(null)
+  const [activeTab, setActiveTab] = useState<'forms' | 'products'>('forms')
 
   useEffect(() => {
     // Check if we're in preview mode and referral code
@@ -632,8 +635,38 @@ export default function FeedbackPage() {
           <p className="text-white/90 drop-shadow">We'd love to hear your feedback!</p>
         </div>
 
-        {/* Feedback Form */}
-        {(isPreviewMode || data.previewEnabled) && (
+        {/* Dynamic Tabs - Only show if products exist */}
+        {data.products && data.products.length > 0 && (isPreviewMode || data.previewEnabled) && (
+          <div className="mb-6">
+            <div className="flex justify-center">
+              <div className="bg-white/20 backdrop-blur-sm rounded-lg p-1 border border-white/30">
+                <button
+                  onClick={() => setActiveTab('forms')}
+                  className={`px-6 py-2 rounded-md text-sm font-medium transition-all duration-200 ${
+                    activeTab === 'forms'
+                      ? 'bg-white text-header shadow-md'
+                      : 'text-white hover:bg-white/10'
+                  }`}
+                >
+                  Forms
+                </button>
+                <button
+                  onClick={() => setActiveTab('products')}
+                  className={`px-6 py-2 rounded-md text-sm font-medium transition-all duration-200 ${
+                    activeTab === 'products'
+                      ? 'bg-white text-header shadow-md'
+                      : 'text-white hover:bg-white/10'
+                  }`}
+                >
+                  Products
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Forms Tab Content */}
+        {(activeTab === 'forms' || !data.products || data.products.length === 0) && (isPreviewMode || data.previewEnabled) && (
           <Card className="bg-white/95 backdrop-blur-sm shadow-2xl border border-shadow mb-6">
             <CardHeader>
               <CardTitle className="text-header">{data.formTitle || 'Share Your Experience'}</CardTitle>
@@ -687,6 +720,53 @@ export default function FeedbackPage() {
             </form>
           </CardContent>
         </Card>
+        )}
+
+        {/* Products Tab Content */}
+        {activeTab === 'products' && data.products && data.products.length > 0 && (isPreviewMode || data.previewEnabled) && (
+          <Card className="bg-white/95 backdrop-blur-sm shadow-2xl border border-shadow mb-6">
+            <CardHeader>
+              <CardTitle className="text-header">Our Products</CardTitle>
+              <CardDescription className="text-subheader">Browse and review our products</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {data.products.map((product) => (
+                  <div key={product.id} className="border border-shadow rounded-lg p-4 hover:shadow-md transition-shadow">
+                    {product.product_image && (
+                      <img
+                        src={product.product_image}
+                        alt={product.name}
+                        className="w-full h-48 object-cover rounded-md mb-4"
+                      />
+                    )}
+                    <h3 className="font-semibold text-header mb-2">{product.name}</h3>
+                    {product.description && (
+                      <p className="text-subheader text-sm mb-3 line-clamp-3">{product.description}</p>
+                    )}
+                    {product.category && (
+                      <span className="inline-block bg-primary/10 text-primary text-xs px-2 py-1 rounded-full mb-3">
+                        {product.category}
+                      </span>
+                    )}
+                    <Button
+                      onClick={() => {
+                        // TODO: Implement product review functionality
+                        console.log('Review product:', product.id)
+                      }}
+                      className="w-full"
+                      style={{
+                        backgroundColor: data.business.submit_button_color || "#CC79F0",
+                        color: data.business.submit_button_text_color || "#FDFFFA"
+                      }}
+                    >
+                      Review This Product
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
         )}
 
         {/* Form Disabled Message */}

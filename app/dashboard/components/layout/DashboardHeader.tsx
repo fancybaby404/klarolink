@@ -1,7 +1,7 @@
 "use client"
 
 import { SidebarTrigger } from "@/components/ui/sidebar"
-import { SimpleNotificationBell } from "@/components/admin/SimpleNotificationBell"
+import { NotificationBell } from "@/components/admin/NotificationBell"
 import type { DashboardTab } from "../../types/dashboard"
 
 interface DashboardHeaderProps {
@@ -29,7 +29,7 @@ export function DashboardHeader({ activeTab }: DashboardHeaderProps) {
 
         {/* Right Side - Notification Bell */}
         <div className="flex items-center gap-2">
-          <SimpleNotificationBell userId="dashboard" />
+          <NotificationBell userId="dashboard" />
         </div>
       </div>
     </header>

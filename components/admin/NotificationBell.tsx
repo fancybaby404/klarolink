@@ -8,16 +8,15 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Separator } from '@/components/ui/separator'
 import { useNotifications } from '@/hooks/useNotifications'
-import { 
-  Bell, 
-  BellRing, 
-  CheckCircle, 
-  AlertTriangle, 
-  Clock, 
+import {
+  Bell,
+  BellRing,
+  CheckCircle,
+  AlertTriangle,
+  Clock,
   Archive,
   ExternalLink,
-  Wifi,
-  WifiOff
+  RefreshCw
 } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import type { TaskNotification } from '@/lib/types/notifications'
@@ -40,10 +39,10 @@ export function NotificationBell({
     notifications,
     stats,
     loading,
-    connectionStatus,
     markAsRead,
     markAllAsRead,
     archiveNotification,
+    fetchNotifications,
     unreadCount,
     criticalCount
   } = useNotifications({
@@ -148,17 +147,17 @@ export function NotificationBell({
               </CardTitle>
               
               <div className="flex items-center gap-2">
-                {/* Connection Status */}
-                <div className="flex items-center gap-1">
-                  {connectionStatus.connected ? (
-                    <Wifi className="h-3 w-3 text-green-600" />
-                  ) : (
-                    <WifiOff className="h-3 w-3 text-red-600" />
-                  )}
-                  <span className="text-xs text-gray-500">
-                    {connectionStatus.connected ? 'Live' : 'Offline'}
-                  </span>
-                </div>
+                {/* Refresh Button */}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => fetchNotifications()}
+                  disabled={loading}
+                  className="text-xs h-6 px-2"
+                  title="Refresh notifications"
+                >
+                  <RefreshCw className={`h-3 w-3 ${loading ? 'animate-spin' : ''}`} />
+                </Button>
 
                 {/* Mark All Read */}
                 {unreadCount > 0 && (

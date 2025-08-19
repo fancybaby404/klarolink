@@ -26,6 +26,7 @@ export async function GET(request: NextRequest) {
     const recentFeedback = await db.getFeedbackSubmissions(business.id, 5)
     const socialLinks = await db.getSocialLinks(business.id)
     const feedbackForm = await db.getFeedbackForm(business.id)
+    const products = await db.getProducts(business.id)
 
     const formattedRecentFeedback = recentFeedback.map((feedback) => {
       // Use enhanced field categorization with backward compatibility
@@ -51,6 +52,7 @@ export async function GET(request: NextRequest) {
       business,
       socialLinks,
       feedbackForm,
+      products,
       stats: {
         ...stats,
         recentFeedback: formattedRecentFeedback,

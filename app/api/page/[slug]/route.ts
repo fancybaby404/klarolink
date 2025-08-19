@@ -19,12 +19,16 @@ export async function GET(request: NextRequest, { params }: { params: { slug: st
     // Get social links
     const socialLinks = await db.getSocialLinks(business.id)
 
+    // Get products
+    const products = await db.getProducts(business.id)
+
     return NextResponse.json({
       business,
       formFields,
       formTitle,
       formDescription,
       socialLinks,
+      products,
       previewEnabled,
     })
   } catch (error) {

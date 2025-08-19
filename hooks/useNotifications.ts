@@ -133,9 +133,23 @@ export function useNotifications(options: UseNotificationsOptions = {}) {
         }
       })
 
-      const response = await fetch(`/api/admin/notifications?${params}`)
-      
+      // Get auth token from localStorage
+      const token = localStorage.getItem("token")
+      if (!token) {
+        throw new Error('No authentication token found')
+      }
+
+      const response = await fetch(`/api/admin/notifications?${params}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      })
+
       if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error('Authentication failed - please log in again')
+        }
         throw new Error(`HTTP ${response.status}: ${response.statusText}`)
       }
 
@@ -258,9 +272,15 @@ export function useNotifications(options: UseNotificationsOptions = {}) {
   // API methods
   const markAsRead = useCallback(async (id: number) => {
     try {
+      const token = localStorage.getItem("token")
+      if (!token) return
+
       const response = await fetch(`/api/admin/notifications/${id}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify({ is_read: true })
       })
 
@@ -274,9 +294,15 @@ export function useNotifications(options: UseNotificationsOptions = {}) {
 
   const markAllAsRead = useCallback(async () => {
     try {
+      const token = localStorage.getItem("token")
+      if (!token) return
+
       const response = await fetch('/api/admin/notifications/bulk', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify({
           action: 'mark_read',
           filters: state.filters
@@ -293,9 +319,15 @@ export function useNotifications(options: UseNotificationsOptions = {}) {
 
   const archiveNotification = useCallback(async (id: number) => {
     try {
+      const token = localStorage.getItem("token")
+      if (!token) return
+
       const response = await fetch(`/api/admin/notifications/${id}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify({ is_archived: true })
       })
 

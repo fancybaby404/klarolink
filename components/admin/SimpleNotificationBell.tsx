@@ -22,7 +22,21 @@ export function SimpleNotificationBell({ userId = 'dashboard' }: SimpleNotificat
   const fetchNotifications = async () => {
     try {
       console.log('🔔 Fetching notifications...')
-      const response = await fetch('/api/dashboard/notifications?category=Dashboard Analytics&limit=10')
+
+      // Get auth token from localStorage
+      const token = localStorage.getItem("token")
+      if (!token) {
+        console.log('❌ No auth token found')
+        setLoading(false)
+        return
+      }
+
+      const response = await fetch('/api/dashboard/notifications?category=Business Intelligence and Analytics&limit=10', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      })
 
       if (response.ok) {
         const data = await response.json()
@@ -31,7 +45,10 @@ export function SimpleNotificationBell({ userId = 'dashboard' }: SimpleNotificat
         setNotifications(data.notifications || [])
         console.log('✅ Notifications fetched:', data.notifications?.length, 'unread:', unreadCount)
       } else {
-        console.error('❌ Failed to fetch notifications:', response.status)
+        console.error('❌ Failed to fetch notifications:', response.status, response.statusText)
+        if (response.status === 401) {
+          console.log('🔑 Authentication failed - token may be invalid')
+        }
       }
     } catch (error) {
       console.error('❌ Error fetching notifications:', error)

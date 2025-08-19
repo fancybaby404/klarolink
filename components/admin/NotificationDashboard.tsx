@@ -11,14 +11,12 @@ import { useNotifications } from '@/hooks/useNotifications'
 import { NotificationList } from './NotificationList'
 import { NotificationStats } from './NotificationStats'
 import { NotificationFilters } from './NotificationFilters'
-import { 
-  Bell, 
-  BellRing, 
-  CheckCircle, 
-  AlertTriangle, 
-  Clock, 
-  Wifi, 
-  WifiOff,
+import {
+  Bell,
+  BellRing,
+  CheckCircle,
+  AlertTriangle,
+  Clock,
   RefreshCw,
   Settings
 } from 'lucide-react'
@@ -41,12 +39,10 @@ export function NotificationDashboard({
     stats,
     loading,
     error,
-    connectionStatus,
     fetchNotifications,
     markAsRead,
     markAllAsRead,
     archiveNotification,
-    connectWebSocket,
     unreadCount,
     criticalCount,
     overdueCount
@@ -63,10 +59,6 @@ export function NotificationDashboard({
 
   const handleRefresh = () => {
     fetchNotifications()
-  }
-
-  const handleReconnect = () => {
-    connectWebSocket()
   }
 
   const getTabNotifications = (tab: string) => {

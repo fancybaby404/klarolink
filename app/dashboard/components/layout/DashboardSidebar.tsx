@@ -12,6 +12,7 @@ import {
 import {
   BarChart3,
   FileText,
+  Package,
   BarChart,
   UserCheck,
   User,
@@ -47,6 +48,11 @@ export function DashboardSidebar({
       id: "forms" as DashboardTab,
       label: "Forms",
       icon: FileText
+    },
+    {
+      id: "products" as DashboardTab,
+      label: "Products",
+      icon: Package
     },
     {
       id: "insights" as DashboardTab,

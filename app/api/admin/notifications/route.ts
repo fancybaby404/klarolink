@@ -25,48 +25,28 @@ export async function GET(request: NextRequest) {
       date_to: searchParams.get('date_to') || undefined,
     }
 
+    console.log(`🔍 Admin Notifications API - Filtering for category: "${filters.category}"`)
+    console.log(`📊 Using database: ${process.env.DATABASE_URL ? 'Real Database' : 'Mock Database'}`)
+
     const page = parseInt(searchParams.get('page') || '1')
     const limit = parseInt(searchParams.get('limit') || '50')
     const offset = (page - 1) * limit
 
-    // Build WHERE clause
-    const whereConditions: string[] = ['is_archived = $1']
-    const queryParams: any[] = [filters.is_archived]
-    let paramIndex = 2
+    // Build WHERE clause for actual database schema
+    const whereConditions: string[] = ['1=1'] // Always true condition to start
+    const queryParams: any[] = []
+    let paramIndex = 1
 
     if (filters.category) {
-      whereConditions.push(`category = $${paramIndex}`)
+      whereConditions.push(`department = $${paramIndex}`)
       queryParams.push(filters.category)
       paramIndex++
     }
 
-    if (filters.status && filters.status.length > 0) {
-      whereConditions.push(`status = ANY($${paramIndex})`)
-      queryParams.push(filters.status)
-      paramIndex++
-    }
-
-    if (filters.priority && filters.priority.length > 0) {
-      whereConditions.push(`priority = ANY($${paramIndex})`)
-      queryParams.push(filters.priority)
-      paramIndex++
-    }
-
+    // Filter by read status (maps to your 'read' column)
     if (filters.is_read !== undefined) {
-      whereConditions.push(`is_read = $${paramIndex}`)
+      whereConditions.push(`read = $${paramIndex}`)
       queryParams.push(filters.is_read)
-      paramIndex++
-    }
-
-    if (filters.business_id) {
-      whereConditions.push(`business_id = $${paramIndex}`)
-      queryParams.push(filters.business_id)
-      paramIndex++
-    }
-
-    if (filters.assigned_to) {
-      whereConditions.push(`assigned_to = $${paramIndex}`)
-      queryParams.push(filters.assigned_to)
       paramIndex++
     }
 
@@ -84,86 +64,73 @@ export async function GET(request: NextRequest) {
 
     const whereClause = whereConditions.join(' AND ')
 
-    // Get notifications
+    // Get notifications using actual database schema
     const notificationsQuery = `
-      SELECT 
+      SELECT
         id,
         task_id,
-        task_type,
-        category,
-        title,
-        description,
-        priority,
-        status,
-        business_id,
-        assigned_to,
-        metadata,
-        progress_percentage,
-        estimated_completion,
-        actual_completion,
-        error_message,
-        retry_count,
-        max_retries,
-        is_read,
-        is_archived,
+        department as category,
+        message as title,
+        message as description,
+        'medium' as priority,
+        CASE WHEN read = true THEN 'completed' ELSE 'pending' END as status,
+        milestone as business_id,
+        'system' as assigned_to,
+        '{}' as metadata,
+        CASE WHEN read = true THEN 100 ELSE 0 END as progress_percentage,
+        NULL as estimated_completion,
+        NULL as actual_completion,
+        NULL as error_message,
+        0 as retry_count,
+        3 as max_retries,
+        read as is_read,
+        false as is_archived,
         created_at,
-        updated_at,
-        CASE 
-          WHEN status = 'failed' THEN 'error'
-          WHEN status = 'completed' THEN 'success'
-          WHEN status = 'in_progress' THEN 'info'
-          WHEN priority = 'critical' THEN 'error'
-          WHEN priority = 'high' THEN 'warning'
-          ELSE 'info'
-        END as notification_type,
-        CASE 
-          WHEN estimated_completion < NOW() AND status NOT IN ('completed', 'failed', 'cancelled') THEN true
-          ELSE false
-        END as is_overdue
-      FROM task_notifications 
+        created_at as updated_at,
+        CASE WHEN read = true THEN 'success' ELSE 'info' END as notification_type,
+        false as is_overdue
+      FROM task_notifications
       WHERE ${whereClause}
-      ORDER BY 
-        CASE priority 
-          WHEN 'critical' THEN 1 
-          WHEN 'high' THEN 2 
-          WHEN 'medium' THEN 3 
-          WHEN 'low' THEN 4 
-        END,
-        created_at DESC
+      ORDER BY created_at DESC
       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
     `
 
     queryParams.push(limit, offset)
     const notifications = await db.query!(notificationsQuery, queryParams)
 
+    console.log(`📊 Query executed - Found ${notifications.length} notifications`)
+    console.log(`🔍 Query parameters:`, queryParams)
+
     // Get total count
     const countQuery = `
-      SELECT COUNT(*) as total 
-      FROM task_notifications 
+      SELECT COUNT(*) as total
+      FROM task_notifications
       WHERE ${whereClause}
     `
     const countResult = await db.query!(countQuery, queryParams.slice(0, -2))
     const total = parseInt(countResult[0].total)
 
-    // Get stats
+    console.log(`📈 Total notifications in database for this filter: ${total}`)
+
+    // Get stats using actual database schema
     const statsQuery = `
-      SELECT 
+      SELECT
         COUNT(*) as total,
-        COUNT(*) FILTER (WHERE is_read = false) as unread,
-        COUNT(*) FILTER (WHERE status = 'pending') as pending,
-        COUNT(*) FILTER (WHERE status = 'in_progress') as in_progress,
-        COUNT(*) FILTER (WHERE status = 'completed') as completed,
-        COUNT(*) FILTER (WHERE status = 'failed') as failed,
-        COUNT(*) FILTER (WHERE status = 'cancelled') as cancelled,
-        COUNT(*) FILTER (WHERE priority = 'low') as low_priority,
-        COUNT(*) FILTER (WHERE priority = 'medium') as medium_priority,
-        COUNT(*) FILTER (WHERE priority = 'high') as high_priority,
-        COUNT(*) FILTER (WHERE priority = 'critical') as critical_priority,
-        COUNT(*) FILTER (WHERE estimated_completion < NOW() AND status NOT IN ('completed', 'failed', 'cancelled')) as overdue,
-        COUNT(*) FILTER (WHERE status = 'completed' AND DATE(actual_completion) = CURRENT_DATE) as completed_today,
-        COUNT(*) FILTER (WHERE status = 'failed' AND DATE(updated_at) = CURRENT_DATE) as failed_today
-      FROM task_notifications 
-      WHERE category = $1 AND is_archived = false
+        COUNT(*) FILTER (WHERE read = false) as unread,
+        COUNT(*) FILTER (WHERE read = false) as pending,
+        0 as in_progress,
+        COUNT(*) FILTER (WHERE read = true) as completed,
+        0 as failed,
+        0 as cancelled,
+        0 as low_priority,
+        COUNT(*) as medium_priority,
+        0 as high_priority,
+        0 as critical_priority,
+        0 as overdue,
+        COUNT(*) FILTER (WHERE read = true AND DATE(created_at) = CURRENT_DATE) as completed_today,
+        0 as failed_today
+      FROM task_notifications
+      WHERE department = $1
     `
     
     const statsResult = await db.query!(statsQuery, [filters.category || 'Business Intelligence and Analytics'])

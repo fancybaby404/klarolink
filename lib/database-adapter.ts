@@ -1,5 +1,5 @@
 // Database abstraction layer for v0 compatibility
-import type { Business, FeedbackForm, SocialLink, FeedbackSubmission, AnalyticsEvent, FormField, CustomerProfile, CustomerSegment, User, Customer, UserBusinessAccess } from "./types"
+import type { Business, FeedbackForm, SocialLink, FeedbackSubmission, AnalyticsEvent, FormField, CustomerProfile, CustomerSegment, User, Customer, UserBusinessAccess, Product } from "./types"
 import { extractAnalyticsData, getFormFieldCategorizations } from "./field-categorization"
 import { Pool } from 'pg'
 
@@ -10,6 +10,43 @@ const pool = new Pool({
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 10000,
 })
+
+// Mock products data
+const mockProducts: Product[] = [
+  {
+    id: 1,
+    business_id: 1,
+    name: "Premium Face Cream",
+    description: "Luxurious anti-aging face cream with natural ingredients",
+    product_image: "/placeholder.svg?height=200&width=200",
+    category: "Skincare",
+    is_active: true,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  {
+    id: 2,
+    business_id: 1,
+    name: "Vitamin C Serum",
+    description: "Brightening serum with 20% Vitamin C",
+    product_image: "/placeholder.svg?height=200&width=200",
+    category: "Skincare",
+    is_active: true,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  {
+    id: 3,
+    business_id: 2,
+    name: "Signature Burger",
+    description: "Our famous beef burger with special sauce",
+    product_image: "/placeholder.svg?height=200&width=200",
+    category: "Main Course",
+    is_active: true,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  }
+]
 
 // Mock data for preview environment
 const mockBusinesses: Business[] = [
@@ -374,6 +411,34 @@ const mockFeedbackSubmissions: FeedbackSubmission[] = [
     ip_address: "192.168.1.3",
     user_agent: "Mozilla/5.0",
   },
+  {
+    id: 4,
+    business_id: 1,
+    form_id: 1,
+    submission_data: {
+      name: "Lisa Chen",
+      email: "lisa@example.com",
+      rating: 3,
+      feedback: "It was okay. Nothing special but not bad either.",
+    },
+    submitted_at: new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString(),
+    ip_address: "192.168.1.4",
+    user_agent: "Mozilla/5.0",
+  },
+  {
+    id: 5,
+    business_id: 1,
+    form_id: 1,
+    submission_data: {
+      name: "David Brown",
+      email: "david@example.com",
+      rating: 3,
+      feedback: "Neutral experience. Met expectations but didn't exceed them.",
+    },
+    submitted_at: new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString(),
+    ip_address: "192.168.1.5",
+    user_agent: "Mozilla/5.0",
+  },
 ]
 
 const mockAnalyticsEvents: AnalyticsEvent[] = [
@@ -568,6 +633,13 @@ export interface DatabaseAdapter {
   getCustomerByEmail(email: string, businessId?: number): Promise<Customer | null>
   createCustomer(data: Omit<Customer, "customer_id" | "created_at" | "registration_date">): Promise<Customer>
   validateCustomerBusinessAccess(customerId: number, businessId: number): Promise<boolean>
+
+  // Product operations
+  getProducts(businessId: number): Promise<Product[]>
+  getProduct(id: number): Promise<Product | null>
+  createProduct(data: Omit<Product, "id" | "created_at" | "updated_at">): Promise<Product>
+  updateProduct(id: number, data: Partial<Product>): Promise<Product | null>
+  deleteProduct(id: number): Promise<boolean>
 
   // Direct query method for custom queries
   query?(sql: string, params?: any[]): Promise<any[]>
@@ -1373,6 +1445,46 @@ class MockDatabaseAdapter implements DatabaseAdapter {
 
   async validateCustomerBusinessAccess(customerId: number, businessId: number): Promise<boolean> {
     // Mock implementation - always return true for testing
+    return true
+  }
+
+  // Product methods
+  async getProducts(businessId: number): Promise<Product[]> {
+    return mockProducts.filter(p => p.business_id === businessId && p.is_active)
+  }
+
+  async getProduct(id: number): Promise<Product | null> {
+    return mockProducts.find(p => p.id === id) || null
+  }
+
+  async createProduct(data: Omit<Product, "id" | "created_at" | "updated_at">): Promise<Product> {
+    const newProduct: Product = {
+      ...data,
+      id: Math.max(...mockProducts.map(p => p.id), 0) + 1,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    }
+    mockProducts.push(newProduct)
+    return newProduct
+  }
+
+  async updateProduct(id: number, data: Partial<Product>): Promise<Product | null> {
+    const index = mockProducts.findIndex(p => p.id === id)
+    if (index === -1) return null
+
+    mockProducts[index] = {
+      ...mockProducts[index],
+      ...data,
+      updated_at: new Date().toISOString(),
+    }
+    return mockProducts[index]
+  }
+
+  async deleteProduct(id: number): Promise<boolean> {
+    const index = mockProducts.findIndex(p => p.id === id)
+    if (index === -1) return false
+
+    mockProducts.splice(index, 1)
     return true
   }
 }
@@ -2361,7 +2473,7 @@ class NeonDatabaseAdapter implements DatabaseAdapter {
         // Determine segments based on rating (NPS methodology)
         const segments = []
         if (averageRating >= 4) segments.push('promoters')
-        else if (averageRating === 3) segments.push('passives')
+        else if (averageRating >= 3 && averageRating < 4) segments.push('passives')
         else if (averageRating > 0) segments.push('detractors')
 
         return {
@@ -2424,7 +2536,7 @@ class NeonDatabaseAdapter implements DatabaseAdapter {
         return []
       }
 
-      // Calculate segment counts from real data
+      // Calculate segment counts from real data (NPS methodology)
       const promoters = customerProfiles.filter(c => c.average_rating >= 4).length
       const passives = customerProfiles.filter(c => c.average_rating >= 3 && c.average_rating < 4).length
       const detractors = customerProfiles.filter(c => c.average_rating > 0 && c.average_rating < 3).length
@@ -2773,6 +2885,183 @@ class NeonDatabaseAdapter implements DatabaseAdapter {
       return false
     }
   }
+
+  // Product methods
+  async getProducts(businessId: number): Promise<Product[]> {
+    try {
+      console.log(`🛍️ Getting products for business ${businessId}`)
+
+      const result = await this.query(`
+        SELECT
+          product_id as id,
+          business_id,
+          product_name as name,
+          product_description as description,
+          product_image,
+          product_category as category,
+          true as is_active,
+          CURRENT_TIMESTAMP as created_at,
+          CURRENT_TIMESTAMP as updated_at
+        FROM products
+        WHERE business_id = $1
+        ORDER BY product_id DESC
+      `, [businessId])
+
+      console.log(`✅ Retrieved ${result.length} products for business ${businessId}`)
+      return result
+    } catch (error) {
+      console.error("❌ Database error in getProducts:", error)
+      console.log("🔄 Falling back to mock data")
+      return mockDatabaseAdapter.getProducts(businessId)
+    }
+  }
+
+  async getProduct(id: number): Promise<Product | null> {
+    try {
+      console.log(`🛍️ Getting product ${id}`)
+
+      const result = await this.query(`
+        SELECT
+          product_id as id,
+          business_id,
+          product_name as name,
+          product_description as description,
+          product_image,
+          product_category as category,
+          true as is_active,
+          CURRENT_TIMESTAMP as created_at,
+          CURRENT_TIMESTAMP as updated_at
+        FROM products
+        WHERE product_id = $1
+      `, [id])
+
+      if (result.length === 0) {
+        console.log(`❌ Product ${id} not found`)
+        return null
+      }
+
+      console.log(`✅ Retrieved product ${id}: ${result[0].name}`)
+      return result[0]
+    } catch (error) {
+      console.error("❌ Database error in getProduct:", error)
+      return mockDatabaseAdapter.getProduct(id)
+    }
+  }
+
+  async createProduct(data: Omit<Product, "id" | "created_at" | "updated_at">): Promise<Product> {
+    try {
+      console.log(`🛍️ Creating product: ${data.name} for business ${data.business_id}`)
+
+      const result = await this.query(`
+        INSERT INTO products (
+          business_id, product_name, product_description, product_image, product_category
+        ) VALUES ($1, $2, $3, $4, $5)
+        RETURNING
+          product_id as id,
+          business_id,
+          product_name as name,
+          product_description as description,
+          product_image,
+          product_category as category,
+          true as is_active,
+          CURRENT_TIMESTAMP as created_at,
+          CURRENT_TIMESTAMP as updated_at
+      `, [
+        data.business_id,
+        data.name,
+        data.description || null,
+        data.product_image || null,
+        data.category || null
+      ])
+
+      const product = result[0]
+      console.log(`✅ Product created: ${product.name} (ID: ${product.id})`)
+      return product
+    } catch (error) {
+      console.error("❌ Database error in createProduct:", error)
+      return mockDatabaseAdapter.createProduct(data)
+    }
+  }
+
+  async updateProduct(id: number, data: Partial<Product>): Promise<Product | null> {
+    try {
+      console.log(`🛍️ Updating product ${id}`)
+
+      const setParts = []
+      const values = []
+      let paramIndex = 1
+
+      if (data.name !== undefined) {
+        setParts.push(`product_name = $${paramIndex++}`)
+        values.push(data.name)
+      }
+      if (data.description !== undefined) {
+        setParts.push(`product_description = $${paramIndex++}`)
+        values.push(data.description)
+      }
+      if (data.product_image !== undefined) {
+        setParts.push(`product_image = $${paramIndex++}`)
+        values.push(data.product_image)
+      }
+      if (data.category !== undefined) {
+        setParts.push(`product_category = $${paramIndex++}`)
+        values.push(data.category)
+      }
+
+      if (setParts.length === 0) {
+        console.log(`❌ No fields to update for product ${id}`)
+        return this.getProduct(id)
+      }
+
+      values.push(id)
+
+      const result = await this.query(`
+        UPDATE products
+        SET ${setParts.join(', ')}
+        WHERE product_id = $${paramIndex}
+        RETURNING
+          product_id as id,
+          business_id,
+          product_name as name,
+          product_description as description,
+          product_image,
+          product_category as category,
+          true as is_active,
+          CURRENT_TIMESTAMP as created_at,
+          CURRENT_TIMESTAMP as updated_at
+      `, values)
+
+      if (result.length === 0) {
+        console.log(`❌ Product ${id} not found for update`)
+        return null
+      }
+
+      const product = result[0]
+      console.log(`✅ Product updated: ${product.name} (ID: ${product.id})`)
+      return product
+    } catch (error) {
+      console.error("❌ Database error in updateProduct:", error)
+      return mockDatabaseAdapter.updateProduct(id, data)
+    }
+  }
+
+  async deleteProduct(id: number): Promise<boolean> {
+    try {
+      console.log(`🛍️ Deleting product ${id}`)
+
+      const result = await this.query(`
+        DELETE FROM products
+        WHERE product_id = $1
+      `, [id])
+
+      const deleted = result.length > 0
+      console.log(`${deleted ? '✅' : '❌'} Product ${id} ${deleted ? 'deleted' : 'not found'}`)
+      return deleted
+    } catch (error) {
+      console.error("❌ Database error in deleteProduct:", error)
+      return mockDatabaseAdapter.deleteProduct(id)
+    }
+  }
 }
 
 // Create database adapter instances
@@ -2783,4 +3072,4 @@ const neonDatabaseAdapter = new NeonDatabaseAdapter()
 export const db: DatabaseAdapter = process.env.DATABASE_URL ? neonDatabaseAdapter : mockDatabaseAdapter
 
 // Export mock data for testing
-export { mockBusinesses, mockFeedbackForms, mockSocialLinks, mockFeedbackSubmissions, mockCustomerProfiles, mockCustomerSegments }
+export { mockBusinesses, mockFeedbackForms, mockSocialLinks, mockFeedbackSubmissions, mockCustomerProfiles, mockCustomerSegments, mockProducts }

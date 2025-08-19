@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/database-adapter'
 import { verifyToken } from '@/lib/auth'
+import { db } from '@/lib/database-adapter'
 
 export async function GET(request: NextRequest) {
   try {
@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('Error fetching products:', error)
     return NextResponse.json(
-      { error: 'Failed to fetch products' },
+      { error: 'Internal server error' },
       { status: 500 }
     )
   }
@@ -66,15 +66,15 @@ export async function POST(request: NextRequest) {
       is_active: true
     })
 
-    return NextResponse.json({
-      success: true,
+    return NextResponse.json({ 
+      success: true, 
       product,
       message: 'Product created successfully'
     })
   } catch (error) {
     console.error('Error creating product:', error)
     return NextResponse.json(
-      { error: 'Failed to create product' },
+      { error: 'Internal server error' },
       { status: 500 }
     )
   }

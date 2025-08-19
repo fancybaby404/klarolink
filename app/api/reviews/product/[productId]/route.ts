@@ -17,12 +17,12 @@ export async function GET(
 
     // Fetch reviews for the product
     const reviewsQuery = `
-      SELECT 
+      SELECT
         pr.*,
-        p.name as product_name,
+        p.product_name as product_name,
         p.product_image
       FROM product_reviews pr
-      JOIN products p ON pr.product_id = p.id
+      JOIN products p ON pr.product_id = p.product_id
       WHERE pr.product_id = $1
       ORDER BY pr.created_at DESC
     `

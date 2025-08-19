@@ -36,7 +36,15 @@ export function FormPreviewCard({ data, onPreviewClick }: FormPreviewCardProps) 
             {/* Mobile Preview Mockup */}
             <div className="relative mx-auto w-48 h-80 bg-gray-900 rounded-[1.5rem] p-1 shadow-lg">
               {/* Screen */}
-              <div className="w-full h-full bg-white rounded-[1.25rem] overflow-hidden relative">
+              <div
+                className="w-full h-full rounded-[1.25rem] overflow-hidden relative"
+                style={{
+                  backgroundColor: data.business.background_type === "color" ? (data.business.background_value || "#CC79F0") : "#CC79F0",
+                  backgroundImage: data.business.background_type === "image" && data.business.background_value ? `url(${data.business.background_value})` : undefined,
+                  backgroundSize: "cover",
+                  backgroundPosition: "center",
+                }}
+              >
                 {/* Status Bar */}
                 <div className="absolute top-0 left-0 right-0 h-4 bg-black rounded-t-[1.25rem] flex items-center justify-between px-3">
                   <div className="text-white text-xs">9:41</div>
@@ -103,8 +111,14 @@ export function FormPreviewCard({ data, onPreviewClick }: FormPreviewCardProps) 
                         
                         {/* Submit Button */}
                         <div className="pt-2">
-                          <div className="w-full h-6 bg-primary rounded text-xs flex items-center justify-center">
-                            <span className="text-white font-medium">Submit</span>
+                          <div
+                            className="w-full h-6 rounded text-xs flex items-center justify-center"
+                            style={{
+                              backgroundColor: data.business.submit_button_color || "#CC79F0",
+                              color: data.business.submit_button_text_color || "#FDFFFA"
+                            }}
+                          >
+                            <span className="font-medium">Submit</span>
                           </div>
                         </div>
                       </div>

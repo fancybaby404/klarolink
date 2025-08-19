@@ -8,6 +8,7 @@ import { toast } from "sonner"
 import { DashboardLayout } from "./components/layout/DashboardLayout"
 import { OverviewTab } from "./components/overview/OverviewTab"
 import { FormBuilder } from "./components/forms/FormBuilder"
+import { ProductsTab } from "./components/products/ProductsTab"
 import { InsightsTab } from "./components/insights/InsightsTab"
 import { AudienceTab } from "./components/audience/AudienceTab"
 import { ProfileModal } from "./components/profile/ProfileModal"
@@ -106,6 +107,13 @@ export default function DashboardPage() {
         <FormBuilder
           data={data}
           onDataUpdate={handleDataUpdate}
+        />
+      )}
+
+      {activeTab === "products" && (
+        <ProductsTab
+          data={data}
+          onDataUpdate={refreshData}
         />
       )}
 

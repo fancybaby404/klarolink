@@ -18,14 +18,20 @@ interface PhoneMockupPreviewProps {
 
 export function PhoneMockupPreview({
   data,
-  backgroundType = "color",
-  backgroundValue = "#6366f1",
-  backgroundImage = "",
-  submitButtonColor = "#CC79F0",
-  submitButtonTextColor = "#FDFFFA",
-  submitButtonHoverColor = "#3E7EF7",
+  backgroundType,
+  backgroundValue,
+  backgroundImage,
+  submitButtonColor,
+  submitButtonTextColor,
+  submitButtonHoverColor,
   isPublished = false
 }: PhoneMockupPreviewProps) {
+  // Use actual business settings if props are not provided
+  const actualBackgroundType = backgroundType || data.business.background_type || "color"
+  const actualBackgroundValue = backgroundValue || data.business.background_value || "#CC79F0"
+  const actualBackgroundImage = backgroundImage || (data.business.background_type === "image" ? data.business.background_value : "")
+  const actualSubmitButtonColor = submitButtonColor || data.business.submit_button_color || "#CC79F0"
+  const actualSubmitButtonTextColor = submitButtonTextColor || data.business.submit_button_text_color || "#FDFFFA"
   return (
     <div className="relative">
       {/* Publish Status Indicator */}
@@ -60,8 +66,8 @@ export function PhoneMockupPreview({
           <div
             className="pt-6 h-full overflow-y-auto p-4"
             style={{
-              backgroundColor: backgroundType === "color" ? (backgroundValue || "#6366f1") : undefined,
-              backgroundImage: backgroundType === "image" && (backgroundImage || backgroundValue) ? `url(${backgroundImage || backgroundValue})` : undefined,
+              backgroundColor: actualBackgroundType === "color" ? actualBackgroundValue : undefined,
+              backgroundImage: actualBackgroundType === "image" && actualBackgroundImage ? `url(${actualBackgroundImage})` : undefined,
               backgroundSize: "cover",
               backgroundPosition: "center",
             }}
@@ -159,14 +165,14 @@ export function PhoneMockupPreview({
                   <button
                     className="w-full py-2 px-3 rounded-lg text-xs font-medium transition-colors duration-200"
                     style={{
-                      backgroundColor: submitButtonColor,
-                      color: submitButtonTextColor,
+                      backgroundColor: actualSubmitButtonColor,
+                      color: actualSubmitButtonTextColor,
                     }}
                     onMouseEnter={(e) => {
-                      e.currentTarget.style.backgroundColor = submitButtonHoverColor
+                      e.currentTarget.style.backgroundColor = submitButtonHoverColor || data.business.submit_button_hover_color || "#3E7EF7"
                     }}
                     onMouseLeave={(e) => {
-                      e.currentTarget.style.backgroundColor = submitButtonColor
+                      e.currentTarget.style.backgroundColor = actualSubmitButtonColor
                     }}
                   >
                     Submit Feedback

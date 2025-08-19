@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
         id: 1,
         title: 'New Feedback Received',
         description: 'You have received 3 new feedback submissions today',
-        category: 'Dashboard Analytics',
+        category: 'Business Intelligence and Analytics',
         priority: 'medium',
         status: 'pending',
         is_read: false,
@@ -51,7 +51,7 @@ export async function GET(request: NextRequest) {
         id: 2,
         title: 'Form Performance Alert',
         description: 'Your feedback form completion rate has increased by 15%',
-        category: 'Dashboard Analytics',
+        category: 'Business Intelligence and Analytics',
         priority: 'low',
         status: 'completed',
         is_read: false,
@@ -62,7 +62,7 @@ export async function GET(request: NextRequest) {
         id: 3,
         title: 'Weekly Analytics Summary',
         description: 'Your weekly analytics report is ready for review',
-        category: 'Dashboard Analytics',
+        category: 'Business Intelligence and Analytics',
         priority: 'low',
         status: 'completed',
         is_read: true,
@@ -73,7 +73,7 @@ export async function GET(request: NextRequest) {
         id: 4,
         title: 'Customer Satisfaction Milestone',
         description: 'Congratulations! You\'ve reached 100 positive reviews',
-        category: 'Dashboard Analytics',
+        category: 'Business Intelligence and Analytics',
         priority: 'high',
         status: 'completed',
         is_read: false,
@@ -84,7 +84,7 @@ export async function GET(request: NextRequest) {
         id: 5,
         title: 'Form Optimization Suggestion',
         description: 'Consider adding a rating field to improve feedback quality',
-        category: 'Dashboard Analytics',
+        category: 'Business Intelligence and Analytics',
         priority: 'medium',
         status: 'pending',
         is_read: false,
@@ -94,7 +94,11 @@ export async function GET(request: NextRequest) {
     ]
 
     // Filter notifications based on query parameters
+    console.log(`🔍 Filtering notifications for category: "${category}"`)
+    console.log(`📊 Available categories in mock data:`, [...new Set(mockNotifications.map(n => n.category))])
+
     let filteredNotifications = mockNotifications.filter(n => n.category === category)
+    console.log(`✅ Found ${filteredNotifications.length} notifications for category "${category}"`)
     
     if (isRead !== null) {
       const readFilter = isRead === 'true'

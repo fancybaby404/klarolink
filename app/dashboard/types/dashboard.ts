@@ -93,4 +93,4 @@ export interface AudienceData {
   }>
 }
 
-export type DashboardTab = "overview" | "forms" | "insights" | "audience"
+export type DashboardTab = "overview" | "forms" | "products" | "insights" | "audience"
