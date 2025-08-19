@@ -2891,21 +2891,56 @@ class NeonDatabaseAdapter implements DatabaseAdapter {
     try {
       console.log(`🛍️ Getting products for business ${businessId}`)
 
-      const result = await this.query(`
-        SELECT
-          product_id as id,
-          business_id,
-          product_name as name,
-          product_description as description,
-          product_image,
-          product_category as category,
-          true as is_active,
-          CURRENT_TIMESTAMP as created_at,
-          CURRENT_TIMESTAMP as updated_at
-        FROM products
-        WHERE business_id = $1
-        ORDER BY product_id DESC
-      `, [businessId])
+      // First, check if business_id column exists
+      let hasBusinessIdColumn = false
+      try {
+        const columnCheck = await this.query(`
+          SELECT column_name
+          FROM information_schema.columns
+          WHERE table_name = 'products' AND column_name = 'business_id'
+        `)
+        hasBusinessIdColumn = columnCheck.length > 0
+        console.log(`📊 Products table has business_id column: ${hasBusinessIdColumn}`)
+      } catch (columnError) {
+        console.log(`⚠️ Could not check for business_id column:`, columnError)
+      }
+
+      let result
+      if (hasBusinessIdColumn) {
+        // Use business_id filter if column exists
+        result = await this.query(`
+          SELECT
+            product_id as id,
+            business_id,
+            product_name as name,
+            product_description as description,
+            product_image,
+            product_category as category,
+            true as is_active,
+            CURRENT_TIMESTAMP as created_at,
+            CURRENT_TIMESTAMP as updated_at
+          FROM products
+          WHERE business_id = $1
+          ORDER BY product_id DESC
+        `, [businessId])
+      } else {
+        // No business_id column - return all products (common for single-business setups)
+        console.log(`📊 No business_id column found, returning all products`)
+        result = await this.query(`
+          SELECT
+            product_id as id,
+            ${businessId} as business_id,
+            product_name as name,
+            product_description as description,
+            product_image,
+            product_category as category,
+            true as is_active,
+            CURRENT_TIMESTAMP as created_at,
+            CURRENT_TIMESTAMP as updated_at
+          FROM products
+          ORDER BY product_id DESC
+        `)
+      }
 
       console.log(`✅ Retrieved ${result.length} products for business ${businessId}`)
       return result
@@ -2920,20 +2955,51 @@ class NeonDatabaseAdapter implements DatabaseAdapter {
     try {
       console.log(`🛍️ Getting product ${id}`)
 
-      const result = await this.query(`
-        SELECT
-          product_id as id,
-          business_id,
-          product_name as name,
-          product_description as description,
-          product_image,
-          product_category as category,
-          true as is_active,
-          CURRENT_TIMESTAMP as created_at,
-          CURRENT_TIMESTAMP as updated_at
-        FROM products
-        WHERE product_id = $1
-      `, [id])
+      // Check if business_id column exists
+      let hasBusinessIdColumn = false
+      try {
+        const columnCheck = await this.query(`
+          SELECT column_name
+          FROM information_schema.columns
+          WHERE table_name = 'products' AND column_name = 'business_id'
+        `)
+        hasBusinessIdColumn = columnCheck.length > 0
+      } catch (columnError) {
+        console.log(`⚠️ Could not check for business_id column:`, columnError)
+      }
+
+      let result
+      if (hasBusinessIdColumn) {
+        result = await this.query(`
+          SELECT
+            product_id as id,
+            business_id,
+            product_name as name,
+            product_description as description,
+            product_image,
+            product_category as category,
+            true as is_active,
+            CURRENT_TIMESTAMP as created_at,
+            CURRENT_TIMESTAMP as updated_at
+          FROM products
+          WHERE product_id = $1
+        `, [id])
+      } else {
+        result = await this.query(`
+          SELECT
+            product_id as id,
+            1 as business_id,
+            product_name as name,
+            product_description as description,
+            product_image,
+            product_category as category,
+            true as is_active,
+            CURRENT_TIMESTAMP as created_at,
+            CURRENT_TIMESTAMP as updated_at
+          FROM products
+          WHERE product_id = $1
+        `, [id])
+      }
 
       if (result.length === 0) {
         console.log(`❌ Product ${id} not found`)

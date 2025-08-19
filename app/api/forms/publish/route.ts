@@ -52,18 +52,75 @@ export async function POST(request: NextRequest) {
       })
     }
 
+    // Update the business.preview_enabled column (this is the correct column to update)
+    console.log('📝 Updating business preview_enabled status')
     const updateQuery = `
-      UPDATE feedback_forms
+      UPDATE businesses
       SET preview_enabled = $1, updated_at = NOW()
-      WHERE business_id = $2
+      WHERE id = $2
       RETURNING id, preview_enabled as is_published
     `
 
     const result = await db.query(updateQuery, [isPublished, businessId])
 
+    // Also ensure a form exists for this business (create if needed)
+    const existingFormQuery = `
+      SELECT id FROM feedback_forms
+      WHERE business_id = $1 AND is_active = true
+    `
+
+    const existingForm = await db.query(existingFormQuery, [businessId])
+
+    if (existingForm.length === 0) {
+      // Create a default form if none exists
+      console.log('📝 Creating default form for business (form does not affect publish status)')
+      const defaultFields = [
+        {
+          id: "name",
+          type: "text",
+          label: "Your Name",
+          required: true,
+          placeholder: "Enter your name"
+        },
+        {
+          id: "email",
+          type: "email",
+          label: "Email Address",
+          required: false,
+          placeholder: "your@email.com"
+        },
+        {
+          id: "rating",
+          type: "rating",
+          label: "Overall Rating",
+          required: true
+        },
+        {
+          id: "feedback",
+          type: "textarea",
+          label: "Your Feedback",
+          required: true,
+          placeholder: "Tell us about your experience..."
+        }
+      ]
+
+      await db.query(`
+        INSERT INTO feedback_forms (business_id, title, description, fields, is_active)
+        VALUES ($1, $2, $3, $4, $5)
+      `, [
+        businessId,
+        'Customer Feedback',
+        'We value your feedback!',
+        JSON.stringify(defaultFields),
+        true
+      ])
+
+      console.log('✅ Created default form for business')
+    }
+
     if (result.length === 0) {
-      console.log('❌ Forms Publish API: No form found for business ID:', businessId)
-      return NextResponse.json({ error: 'Form not found' }, { status: 404 })
+      console.log('❌ Forms Publish API: Failed to update/create form for business ID:', businessId)
+      return NextResponse.json({ error: 'Failed to update form status' }, { status: 500 })
     }
 
     console.log('✅ Forms Publish API: Form publish status updated successfully')

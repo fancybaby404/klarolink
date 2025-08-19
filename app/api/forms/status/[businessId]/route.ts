@@ -50,15 +50,15 @@ export async function GET(request: NextRequest, { params }: { params: { business
 
     const statusQuery = `
       SELECT preview_enabled as is_published, id
-      FROM feedback_forms
-      WHERE business_id = $1
+      FROM businesses
+      WHERE id = $1
     `
 
     const result = await db.query(statusQuery, [params.businessId])
 
     if (result.length === 0) {
-      console.log('❌ Forms Status API: No form found for business ID:', params.businessId)
-      return NextResponse.json({ error: 'Form not found' }, { status: 404 })
+      console.log('❌ Forms Status API: No business found for ID:', params.businessId)
+      return NextResponse.json({ error: 'Business not found' }, { status: 404 })
     }
 
     const isPublished = result[0].is_published || false

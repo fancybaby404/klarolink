@@ -82,6 +82,11 @@ export default function FeedbackPage() {
   // Removed gamification state
   const [currentUser, setCurrentUser] = useState<any>(null)
   const [activeTab, setActiveTab] = useState<'forms' | 'products'>('forms')
+  const [showProductReview, setShowProductReview] = useState(false)
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
+  const [productReviewRating, setProductReviewRating] = useState(0)
+  const [productReviewComment, setProductReviewComment] = useState("")
+  const [isSubmittingReview, setIsSubmittingReview] = useState(false)
 
   useEffect(() => {
     // Check if we're in preview mode and referral code
@@ -126,6 +131,83 @@ export default function FeedbackPage() {
       })
     } catch (error) {
       console.error("Error tracking page view:", error)
+    }
+  }
+
+  const handleProductReviewClick = (product: Product) => {
+    console.log('Opening review for product:', product.id)
+    setSelectedProduct(product)
+    setProductReviewRating(0)
+    setProductReviewComment("")
+    setShowProductReview(true)
+  }
+
+  const submitProductReview = async () => {
+    if (!selectedProduct || productReviewRating === 0 || !productReviewComment.trim()) {
+      setError("Please provide a rating and comment")
+      return
+    }
+
+    // Check if user is authenticated
+    const token = localStorage.getItem("userToken")
+    if (!token) {
+      setShowProductReview(false)
+      setShowLoginDialog(true)
+      return
+    }
+
+    setIsSubmittingReview(true)
+    setError("")
+
+    try {
+      const response = await fetch(`/api/reviews/product/${selectedProduct.id}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          rating: productReviewRating,
+          comment: productReviewComment.trim(),
+          business_id: data?.business.id
+        })
+      })
+
+      if (response.ok) {
+        // Success - close modal and show success message
+        setShowProductReview(false)
+        setSelectedProduct(null)
+        setProductReviewRating(0)
+        setProductReviewComment("")
+
+        // You could add a success toast here
+        console.log('Product review submitted successfully!')
+
+        // Track the review submission
+        try {
+          await fetch(`/api/analytics/${slug}`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              event_type: "product_review",
+              product_id: selectedProduct.id,
+              rating: productReviewRating
+            }),
+          })
+        } catch (trackingError) {
+          console.log('Review tracking failed:', trackingError)
+        }
+      } else {
+        const errorData = await response.json()
+        setError(errorData.error || 'Failed to submit review')
+      }
+    } catch (error) {
+      console.error('Error submitting product review:', error)
+      setError('Failed to submit review. Please try again.')
+    } finally {
+      setIsSubmittingReview(false)
     }
   }
 
@@ -750,10 +832,7 @@ export default function FeedbackPage() {
                       </span>
                     )}
                     <Button
-                      onClick={() => {
-                        // TODO: Implement product review functionality
-                        console.log('Review product:', product.id)
-                      }}
+                      onClick={() => handleProductReviewClick(product)}
                       className="w-full"
                       style={{
                         backgroundColor: data.business.submit_button_color || "#CC79F0",
@@ -981,6 +1060,129 @@ export default function FeedbackPage() {
           // The user is now logged in and can submit feedback
         }}
       />
+
+      {/* Product Review Modal */}
+      {showProductReview && selectedProduct && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg max-w-md w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-gray-900">
+                  Review Product
+                </h3>
+                <button
+                  onClick={() => setShowProductReview(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              {/* Product Info */}
+              <div className="flex items-center gap-3 mb-6 p-3 bg-gray-50 rounded-lg">
+                {selectedProduct.product_image ? (
+                  <img
+                    src={selectedProduct.product_image}
+                    alt={selectedProduct.name}
+                    className="w-12 h-12 object-cover rounded"
+                  />
+                ) : (
+                  <div className="w-12 h-12 bg-gray-200 rounded flex items-center justify-center">
+                    <span className="text-gray-400 text-xs">No Image</span>
+                  </div>
+                )}
+                <div>
+                  <h4 className="font-medium text-gray-900">{selectedProduct.name}</h4>
+                  {selectedProduct.category && (
+                    <span className="text-xs text-gray-500">{selectedProduct.category}</span>
+                  )}
+                </div>
+              </div>
+
+              {/* Rating */}
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Rating *
+                </label>
+                <div className="flex gap-1">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <button
+                      key={star}
+                      type="button"
+                      className="p-1 hover:scale-110 transition-transform"
+                      onClick={() => setProductReviewRating(star)}
+                    >
+                      <svg
+                        className={`w-6 h-6 ${
+                          star <= productReviewRating
+                            ? 'fill-yellow-400 text-yellow-400'
+                            : 'text-gray-300'
+                        }`}
+                        fill="currentColor"
+                        viewBox="0 0 20 20"
+                      >
+                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                      </svg>
+                    </button>
+                  ))}
+                </div>
+                {productReviewRating > 0 && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    {productReviewRating} star{productReviewRating !== 1 ? 's' : ''}
+                  </p>
+                )}
+              </div>
+
+              {/* Comment */}
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Comment *
+                </label>
+                <textarea
+                  value={productReviewComment}
+                  onChange={(e) => setProductReviewComment(e.target.value)}
+                  placeholder="Share your experience with this product..."
+                  rows={4}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                  maxLength={500}
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  {productReviewComment.length}/500 characters
+                </p>
+              </div>
+
+              {/* Error Message */}
+              {error && (
+                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
+                  <p className="text-sm text-red-600">{error}</p>
+                </div>
+              )}
+
+              {/* Actions */}
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowProductReview(false)}
+                  disabled={isSubmittingReview}
+                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={submitProductReview}
+                  disabled={isSubmittingReview || productReviewRating === 0 || !productReviewComment.trim()}
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+                >
+                  {isSubmittingReview ? 'Submitting...' : 'Submit Review'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -27,13 +27,17 @@ export function ProductSelectionModal({
 }: ProductSelectionModalProps) {
   const [searchQuery, setSearchQuery] = useState("")
 
-  const filteredProducts = products.filter(product =>
+  // Ensure products is always an array
+  const productsArray = Array.isArray(products) ? products : []
+  const selectedProductsArray = Array.isArray(selectedProducts) ? selectedProducts : []
+
+  const filteredProducts = productsArray.filter(product =>
     product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     product.category?.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
   const isProductSelected = (productId: number) => {
-    return selectedProducts.some(p => p.id === productId)
+    return selectedProductsArray.some(p => p.id === productId)
   }
 
   return (
@@ -140,7 +144,7 @@ export function ProductSelectionModal({
         {/* Footer */}
         <div className="flex justify-between items-center pt-4 border-t">
           <div className="text-sm text-gray-500">
-            {selectedProducts.length} product{selectedProducts.length !== 1 ? 's' : ''} selected
+            {selectedProductsArray.length} product{selectedProductsArray.length !== 1 ? 's' : ''} selected
           </div>
           <Button onClick={onClose}>
             Done

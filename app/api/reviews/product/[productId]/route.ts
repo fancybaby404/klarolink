@@ -54,7 +54,13 @@ export async function POST(
       )
     }
 
-    const { rating, comment, user_id } = body
+    const { rating, comment, user_id, business_id } = body
+
+    console.log(`📝 Creating product review for product ${productId}:`, {
+      rating,
+      comment: comment?.substring(0, 50) + '...',
+      business_id
+    })
 
     // Validate required fields
     if (!rating || rating < 1 || rating > 5) {
@@ -71,9 +77,22 @@ export async function POST(
       )
     }
 
+    // Check if we have a real database connection
+    if (!db.query) {
+      console.log('📝 Using mock database - simulating product review creation')
+      return NextResponse.json({
+        id: Math.floor(Math.random() * 1000),
+        product_id: productId,
+        rating,
+        comment: comment.trim(),
+        created_at: new Date().toISOString(),
+        business_id
+      }, { status: 201 })
+    }
+
     // Check if product exists
-    const productCheck = await db.query!(
-      'SELECT id FROM products WHERE id = $1 AND is_active = true',
+    const productCheck = await db.query(
+      'SELECT product_id FROM products WHERE product_id = $1',
       [productId]
     )
 
@@ -84,21 +103,41 @@ export async function POST(
       )
     }
 
+    // Create product_reviews table if it doesn't exist
+    try {
+      await db.query(`
+        CREATE TABLE IF NOT EXISTS product_reviews (
+          id SERIAL PRIMARY KEY,
+          product_id INTEGER NOT NULL,
+          business_id INTEGER,
+          user_id INTEGER,
+          rating INTEGER NOT NULL CHECK (rating >= 1 AND rating <= 5),
+          comment TEXT NOT NULL,
+          created_at TIMESTAMP DEFAULT NOW(),
+          updated_at TIMESTAMP DEFAULT NOW()
+        )
+      `)
+    } catch (createError) {
+      console.log('Product reviews table creation skipped or failed:', createError)
+    }
+
     // Insert review
     const reviewQuery = `
-      INSERT INTO product_reviews (product_id, user_id, rating, comment)
-      VALUES ($1, $2, $3, $4)
+      INSERT INTO product_reviews (product_id, business_id, user_id, rating, comment)
+      VALUES ($1, $2, $3, $4, $5)
       RETURNING *
     `
 
-    const result = await db.query!(reviewQuery, [
+    const result = await db.query(reviewQuery, [
       productId,
+      business_id || null,
       user_id || null,
       rating,
       comment.trim()
     ])
 
     const review = result[0]
+    console.log(`✅ Product review created successfully:`, review)
 
     return NextResponse.json(review, { status: 201 })
   } catch (error) {

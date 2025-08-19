@@ -1,8 +1,9 @@
 "use client"
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
-import { MapPin, Star } from "lucide-react"
+import { MapPin, Star, ExternalLink } from "lucide-react"
 import type { DashboardData } from "../../types/dashboard"
 
 interface PhoneMockupPreviewProps {
@@ -183,6 +184,25 @@ export function PhoneMockupPreview({
           </div>
         </div>
       </div>
+
+      {/* Open in New Tab Button - Only show if published */}
+      {isPublished && (
+        <div className="mt-4">
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full"
+            onClick={() => {
+              const currentOrigin = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000'
+              const previewUrl = `${currentOrigin}/${data.business.slug}`
+              window.open(previewUrl, '_blank')
+            }}
+          >
+            <ExternalLink className="h-4 w-4 mr-2" />
+            Open in New Tab
+          </Button>
+        </div>
+      )}
     </div>
   )
 }

@@ -53,6 +53,7 @@ export function FormBuilder({ data, onDataUpdate }: FormBuilderProps) {
   const [tempTitle, setTempTitle] = useState("")
   const [tempDescription, setTempDescription] = useState("")
   const [isFormPublished, setIsFormPublished] = useState(false)
+  const [isTogglingPublish, setIsTogglingPublish] = useState(false)
   const [businessProducts, setBusinessProducts] = useState<Product[]>([])
   const [activeTab, setActiveTab] = useState<"forms" | "products">("forms")
   const [isLoadingProducts, setIsLoadingProducts] = useState(false)
@@ -91,6 +92,10 @@ export function FormBuilder({ data, onDataUpdate }: FormBuilderProps) {
       setFormDescription(data.feedbackForm.description || "")
       setFormFields(data.feedbackForm.fields || [])
       setPreviewEnabled(data.feedbackForm.preview_enabled || false)
+
+      // Also set the publish status from the form data
+      setIsFormPublished(data.feedbackForm.preview_enabled || false)
+      console.log(`📊 Initialized form publish status from props: ${data.feedbackForm.preview_enabled}`)
     }
   }, [data.feedbackForm])
 
@@ -180,7 +185,22 @@ export function FormBuilder({ data, onDataUpdate }: FormBuilderProps) {
 
   // Handle form publish toggle
   const handleFormPublishToggle = async (checked: boolean) => {
+    console.log(`🔄 Toggling form publish status to: ${checked}`)
+
+    // Set loading state
+    setIsTogglingPublish(true)
+
+    // Immediately update UI state for instant feedback
+    setIsFormPublished(checked)
+
     try {
+      // Show immediate feedback
+      toast({
+        title: checked ? "Publishing form..." : "Making form private...",
+        description: "Updating form status...",
+        duration: 2000,
+      })
+
       // Update the form's published status via API
       const response = await fetch('/api/forms/publish', {
         method: 'POST',
@@ -194,59 +214,96 @@ export function FormBuilder({ data, onDataUpdate }: FormBuilderProps) {
         })
       })
 
-      if (response.ok) {
-        setIsFormPublished(checked)
+      console.log(`📡 API Response status: ${response.status}`)
 
+      if (response.ok) {
+        const result = await response.json()
+        console.log(`✅ Form publish status updated successfully:`, result)
+
+        // Show success message
         if (checked) {
           toast({
-            title: "Form is now public",
+            title: "✅ Form is now public",
             description: `Your form is accessible at ${window.location.origin}/${data.business.slug}`,
-            duration: 3000,
+            duration: 5000,
           })
         } else {
           toast({
-            title: "Form access disabled",
-            description: "Your form is now private and not accessible publicly.",
+            title: "✅ Form is now private",
+            description: "Your form is no longer accessible publicly.",
             duration: 3000,
           })
         }
+
+        // Update parent data if callback exists
+        if (onDataUpdate) {
+          const updatedData = {
+            ...data,
+            feedbackForm: {
+              ...data.feedbackForm,
+              preview_enabled: checked
+            }
+          }
+          onDataUpdate(updatedData)
+        }
+
+        // Reload the form status to ensure UI is in sync with database
+        setTimeout(() => {
+          loadFormStatus()
+        }, 500)
       } else {
+        // Revert UI state on error
+        setIsFormPublished(!checked)
+
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }))
+        console.error(`❌ API Error:`, errorData)
+
         toast({
-          title: "Error",
-          description: "Failed to update form access. Please try again.",
-          duration: 3000,
+          title: "❌ Update failed",
+          description: errorData.error || "Failed to update form access. Please try again.",
+          duration: 5000,
           variant: "destructive"
         })
       }
     } catch (error) {
-      console.error('Error updating form publish status:', error)
+      // Revert UI state on error
+      setIsFormPublished(!checked)
+
+      console.error('❌ Error updating form publish status:', error)
       toast({
-        title: "Error",
-        description: "Failed to update form access. Please try again.",
-        duration: 3000,
+        title: "❌ Connection error",
+        description: "Failed to connect to server. Please check your connection and try again.",
+        duration: 5000,
         variant: "destructive"
       })
+    } finally {
+      // Always clear loading state
+      setIsTogglingPublish(false)
     }
   }
 
   // Load current form publish status
-  useEffect(() => {
-    const loadFormStatus = async () => {
-      try {
-        const response = await fetch(`/api/forms/status/${data.business.id}`, {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          }
-        })
-        if (response.ok) {
-          const { isPublished } = await response.json()
-          setIsFormPublished(isPublished)
+  const loadFormStatus = async () => {
+    try {
+      console.log(`🔍 Loading form status for business ID: ${data.business.id}`)
+      const response = await fetch(`/api/forms/status/${data.business.id}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
         }
-      } catch (error) {
-        console.error('Error loading form status:', error)
+      })
+      if (response.ok) {
+        const result = await response.json()
+        console.log(`📊 Form status loaded:`, result)
+        setIsFormPublished(result.isPublished)
+      } else {
+        console.error(`❌ Failed to load form status: ${response.status}`)
       }
+    } catch (error) {
+      console.error('❌ Error loading form status:', error)
     }
+  }
 
+  useEffect(() => {
     if (data?.business?.id) {
       loadFormStatus()
     }
@@ -793,11 +850,17 @@ export function FormBuilder({ data, onDataUpdate }: FormBuilderProps) {
                     Open in New Tab
                   </Button>
                 )}
-                <Switch
-                  checked={isFormPublished}
-                  onCheckedChange={handleFormPublishToggle}
-                  className="data-[state=checked]:bg-[#c586e9]"
-                />
+                <div className="flex items-center gap-2">
+                  <Switch
+                    checked={isFormPublished}
+                    onCheckedChange={handleFormPublishToggle}
+                    disabled={isTogglingPublish}
+                    className="data-[state=checked]:bg-[#c586e9]"
+                  />
+                  {isTogglingPublish && (
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
+                  )}
+                </div>
               </div>
             </div>
           </CardContent>

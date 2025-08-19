@@ -9,7 +9,9 @@ import {
   MessageSquare,
   Users,
   Star,
-  AlertTriangle
+  AlertTriangle,
+  Package,
+  Clock
 } from "lucide-react"
 import type { DashboardData } from "../../types/dashboard"
 import { extractDataWithFallback } from "@/lib/field-categorization"
@@ -29,12 +31,14 @@ export function InsightsTab({ data }: InsightsTabProps) {
   const [timeRange, setTimeRange] = useState("7d")
   const [compareWith, setCompareWith] = useState("previous")
   const [enhancedInsights, setEnhancedInsights] = useState<any>(null)
+  const [enhancedAnalytics, setEnhancedAnalytics] = useState<any>(null)
   const [customerJourney, setCustomerJourney] = useState<any>(null)
   const [benchmarks, setBenchmarks] = useState<any>(null)
 
   useEffect(() => {
     fetchInsights()
     fetchIssues()
+    fetchEnhancedAnalytics()
   }, [timeRange, compareWith])
 
   useEffect(() => { 
@@ -57,6 +61,27 @@ export function InsightsTab({ data }: InsightsTabProps) {
       setAiError(e.message || 'Failed to load AI insights')
     } finally {
       setAiLoading(false)
+    }
+  }
+
+  const fetchEnhancedAnalytics = async () => {
+    try {
+      const token = localStorage.getItem("token")
+      if (!token) return
+
+      const response = await fetch('/api/analytics/enhanced', {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+
+      if (response.ok) {
+        const result = await response.json()
+        setEnhancedAnalytics(result.analytics)
+        console.log('📊 Enhanced analytics loaded:', result.analytics)
+      }
+    } catch (error) {
+      console.error('Error fetching enhanced analytics:', error)
     }
   }
 
@@ -586,6 +611,162 @@ export function InsightsTab({ data }: InsightsTabProps) {
           </CardContent>
         </Card>
       </div>
+
+      {/* Product Ratings Section - Only show if product ratings exist */}
+      {enhancedAnalytics?.productRatings?.hasProductRatings && (
+        <div className="mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Package className="h-5 w-5 text-purple-600" />
+                Product Ratings
+              </CardTitle>
+              <CardDescription>
+                Customer ratings and reviews for your products
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Product Ratings Overview */}
+                <div>
+                  <div className="grid grid-cols-2 gap-4 mb-6">
+                    <div className="bg-purple-50 rounded-lg p-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-medium text-purple-600">Average Rating</p>
+                          <p className="text-2xl font-bold text-purple-900">
+                            {enhancedAnalytics.productRatings.averageRating}/5
+                          </p>
+                        </div>
+                        <Star className="h-8 w-8 text-purple-600" />
+                      </div>
+                    </div>
+                    <div className="bg-blue-50 rounded-lg p-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-medium text-blue-600">Total Reviews</p>
+                          <p className="text-2xl font-bold text-blue-900">
+                            {enhancedAnalytics.productRatings.totalReviews}
+                          </p>
+                        </div>
+                        <MessageSquare className="h-8 w-8 text-blue-600" />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Enabled Products Info */}
+                  {enhancedAnalytics?.enabledProducts && (
+                    <div className="bg-green-50 rounded-lg p-4">
+                      <h4 className="font-medium text-green-900 mb-2">Products on Feedback Page</h4>
+                      <p className="text-sm text-green-700 mb-3">
+                        {enhancedAnalytics.enabledProducts.enabledProducts} of {enhancedAnalytics.enabledProducts.totalProducts} products enabled
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {enhancedAnalytics.enabledProducts.enabledProductsList.slice(0, 3).map((product: any) => (
+                          <span key={product.id} className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">
+                            {product.name}
+                          </span>
+                        ))}
+                        {enhancedAnalytics.enabledProducts.enabledProductsList.length > 3 && (
+                          <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">
+                            +{enhancedAnalytics.enabledProducts.enabledProductsList.length - 3} more
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Top Rated Products */}
+                <div>
+                  <h4 className="font-medium text-gray-900 mb-4">Top Rated Products</h4>
+                  <div className="space-y-3">
+                    {enhancedAnalytics.productRatings.topRatedProducts.slice(0, 5).map((product: any, index: number) => (
+                      <div key={product.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                        <div className="flex items-center gap-3">
+                          <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
+                            index === 0 ? 'bg-yellow-400 text-yellow-900' :
+                            index === 1 ? 'bg-gray-300 text-gray-700' :
+                            index === 2 ? 'bg-orange-400 text-orange-900' :
+                            'bg-gray-200 text-gray-600'
+                          }`}>
+                            {index + 1}
+                          </div>
+                          <div>
+                            <p className="font-medium text-gray-900">{product.name}</p>
+                            <p className="text-xs text-gray-500">{product.reviewCount} reviews</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                          <span className="font-medium text-gray-900">{product.rating}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Enhanced Recent Activity */}
+      {enhancedAnalytics?.recentActivity && enhancedAnalytics.recentActivity.length > 0 && (
+        <div className="mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Clock className="h-5 w-5 text-gray-600" />
+                Recent Activity
+              </CardTitle>
+              <CardDescription>
+                Latest feedback and product reviews from your customers
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {enhancedAnalytics.recentActivity.slice(0, 8).map((activity: any, index: number) => (
+                  <div key={index} className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                      activity.type === 'product_review' ? 'bg-purple-100' : 'bg-blue-100'
+                    }`}>
+                      {activity.type === 'product_review' ?
+                        <Package className="h-4 w-4 text-purple-600" /> :
+                        <MessageSquare className="h-4 w-4 text-blue-600" />
+                      }
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-sm font-medium text-gray-900">
+                          {activity.type === 'product_review' ? 'Product Review' : 'General Feedback'}
+                        </span>
+                        {activity.rating && (
+                          <div className="flex items-center gap-1">
+                            <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
+                            <span className="text-xs text-gray-600">{activity.rating}</span>
+                          </div>
+                        )}
+                      </div>
+                      {activity.productName && (
+                        <p className="text-xs text-purple-600 mb-1">Product: {activity.productName}</p>
+                      )}
+                      {(activity.feedback || activity.comment) && (
+                        <p className="text-sm text-gray-600 line-clamp-2">
+                          {activity.feedback || activity.comment}
+                        </p>
+                      )}
+                      <p className="text-xs text-gray-400 mt-1">
+                        {new Date(activity.date).toLocaleDateString()}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   )
 }

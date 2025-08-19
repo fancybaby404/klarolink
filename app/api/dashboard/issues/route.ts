@@ -30,28 +30,37 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Invalid token" }, { status: 401 })
     }
 
+    console.log(`🔍 Getting feedback submissions for business ID: ${payload.businessId}`)
+
     // Get all feedback submissions for this business
-    const submissions = await db.getFeedbackSubmissions(payload.businessId)
-    
+    const submissions = await db.getFeedbackSubmissions(payload.businessId, 1000) // Increased limit
+
+    console.log(`📊 Found ${submissions.length} feedback submissions`)
+
     if (submissions.length === 0) {
+      console.log(`❌ No feedback submissions found for business ${payload.businessId}`)
       return NextResponse.json({
         issues: [],
         totalSubmissions: 0,
-        message: "No feedback submissions found"
+        negativeSubmissions: 0,
+        message: "No feedback submissions found",
+        suggestion: "Add feedback submissions to see issue analysis"
       })
     }
 
-    // Analyze feedback content for common issues
+    // Analyze feedback content for common issues (enhanced keywords)
     const issueKeywords = {
-      'pricing': ['expensive', 'costly', 'price', 'pricing', 'cost', 'money', 'cheap', 'overpriced'],
-      'service': ['service', 'staff', 'employee', 'rude', 'helpful', 'friendly', 'slow service'],
-      'quality': ['quality', 'poor', 'bad', 'excellent', 'good', 'terrible', 'amazing'],
-      'delivery': ['delivery', 'shipping', 'late', 'delayed', 'fast', 'slow', 'on time'],
-      'wait_time': ['wait', 'waiting', 'queue', 'long wait', 'quick', 'fast', 'slow'],
-      'selection': ['selection', 'variety', 'options', 'limited', 'choice', 'availability'],
-      'location': ['location', 'parking', 'access', 'convenient', 'far', 'close'],
-      'cleanliness': ['clean', 'dirty', 'hygiene', 'sanitary', 'mess', 'tidy']
+      'pricing': ['expensive', 'costly', 'price', 'pricing', 'cost', 'money', 'cheap', 'overpriced', 'affordable', 'budget', 'value'],
+      'service': ['service', 'staff', 'employee', 'rude', 'helpful', 'friendly', 'slow service', 'customer service', 'support', 'attitude'],
+      'quality': ['quality', 'poor', 'bad', 'excellent', 'good', 'terrible', 'amazing', 'awful', 'outstanding', 'mediocre'],
+      'delivery': ['delivery', 'shipping', 'late', 'delayed', 'fast', 'slow', 'on time', 'quick', 'prompt'],
+      'wait_time': ['wait', 'waiting', 'queue', 'long wait', 'quick', 'fast', 'slow', 'time', 'delay'],
+      'selection': ['selection', 'variety', 'options', 'limited', 'choice', 'availability', 'stock', 'range'],
+      'location': ['location', 'parking', 'access', 'convenient', 'far', 'close', 'distance', 'accessibility'],
+      'cleanliness': ['clean', 'dirty', 'hygiene', 'sanitary', 'mess', 'tidy', 'spotless', 'filthy']
     }
+
+    console.log(`🔍 Analyzing ${submissions.length} submissions for issues...`)
 
     const issueAnalysis: { [key: string]: IssueAnalysis } = {}
 

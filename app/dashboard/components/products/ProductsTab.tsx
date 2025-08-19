@@ -29,6 +29,7 @@ export function ProductsTab({ data, onDataUpdate, onProductsSelected }: Products
 
   useEffect(() => {
     fetchProducts()
+    loadEnabledProducts()
   }, [data.business.id])
 
   const fetchProducts = async () => {
@@ -47,13 +48,81 @@ export function ProductsTab({ data, onDataUpdate, onProductsSelected }: Products
         const result = await response.json()
         const fetchedProducts = result.products || []
         setProducts(fetchedProducts)
-        // Initialize selection state
+        // Initialize selection state - will be updated by loadEnabledProducts
         setSelectedProducts(fetchedProducts.map((p: Product) => ({ id: p.id, selected: false })))
       }
     } catch (error) {
       console.error("Error fetching products:", error)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const loadEnabledProducts = async () => {
+    try {
+      const token = localStorage.getItem("token")
+      if (!token) return
+
+      const response = await fetch(`/api/products/enabled`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+
+      if (response.ok) {
+        const result = await response.json()
+        const enabledProductIds = result.enabledProducts || []
+
+        // Update selection state based on enabled products
+        setSelectedProducts(prev =>
+          prev.map(p => ({
+            ...p,
+            selected: enabledProductIds.includes(p.id)
+          }))
+        )
+
+        console.log(`📊 Loaded ${enabledProductIds.length} enabled products`)
+      }
+    } catch (error) {
+      console.error("Error loading enabled products:", error)
+    }
+  }
+
+  const saveEnabledProducts = async () => {
+    try {
+      const token = localStorage.getItem("token")
+      if (!token) return
+
+      const enabledProductIds = selectedProducts
+        .filter(p => p.selected)
+        .map(p => p.id)
+
+      const response = await fetch(`/api/products/enabled`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ enabledProductIds })
+      })
+
+      if (response.ok) {
+        const result = await response.json()
+        console.log(`✅ Saved ${enabledProductIds.length} enabled products`)
+
+        // Show success feedback
+        if (onDataUpdate) {
+          onDataUpdate()
+        }
+
+        return true
+      } else {
+        console.error('Failed to save enabled products')
+        return false
+      }
+    } catch (error) {
+      console.error("Error saving enabled products:", error)
+      return false
     }
   }
 
@@ -239,14 +308,21 @@ export function ProductsTab({ data, onDataUpdate, onProductsSelected }: Products
               </div>
               <div className="flex gap-2">
                 <button
-                  onClick={() => {
+                  onClick={async () => {
                     const selectedData = getSelectedProductsData()
                     console.log('Selected products:', selectedData)
-                    onProductsSelected?.(selectedData)
+
+                    // Save enabled products to database
+                    const saved = await saveEnabledProducts()
+
+                    if (saved) {
+                      // Call the callback with selected products
+                      onProductsSelected?.(selectedData)
+                    }
                   }}
                   className="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/90 transition-colors"
                 >
-                  Use Selected Products
+                  Enable for Feedback Page
                 </button>
               </div>
             </div>

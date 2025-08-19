@@ -523,12 +523,33 @@ export async function extractAnalyticsData(
  * Intelligent rating field detection
  */
 function findRatingFieldIntelligent(submissionData: Record<string, any>): number | null {
-  // First try exact matches
-  const exactMatches = ['rating', 'Rating', 'overall-rating', 'product-rating', 'service-rating', 'score', 'overall-score']
+  console.log('🔍 Finding rating in submission data:', Object.keys(submissionData))
+
+  // First try exact matches (expanded list)
+  const exactMatches = [
+    'rating', 'Rating', 'RATING',
+    'overall-rating', 'overall_rating', 'overallRating',
+    'product-rating', 'product_rating', 'productRating',
+    'service-rating', 'service_rating', 'serviceRating',
+    'score', 'Score', 'SCORE',
+    'overall-score', 'overall_score', 'overallScore',
+    'satisfaction', 'Satisfaction',
+    'stars', 'Stars', 'star', 'Star'
+  ]
+
   for (const fieldName of exactMatches) {
     const value = submissionData[fieldName]
     if (typeof value === 'number' && value >= 1 && value <= 10) {
+      console.log(`✅ Found rating via exact match: ${fieldName} = ${value}`)
       return value
+    }
+    // Also try string values that can be converted to numbers
+    if (typeof value === 'string' && !isNaN(Number(value))) {
+      const numValue = Number(value)
+      if (numValue >= 1 && numValue <= 10) {
+        console.log(`✅ Found rating via exact match (string): ${fieldName} = ${numValue}`)
+        return numValue
+      }
     }
   }
 
@@ -537,14 +558,25 @@ function findRatingFieldIntelligent(submissionData: Record<string, any>): number
     /rating/i,
     /score/i,
     /stars?/i,
-    /satisfaction/i
+    /satisfaction/i,
+    /rate/i,
+    /review/i
   ]
 
   for (const [fieldId, value] of Object.entries(submissionData)) {
-    if (typeof value === 'number' && value >= 1 && value <= 10) {
+    let numValue: number | null = null
+
+    if (typeof value === 'number') {
+      numValue = value
+    } else if (typeof value === 'string' && !isNaN(Number(value))) {
+      numValue = Number(value)
+    }
+
+    if (numValue !== null && numValue >= 1 && numValue <= 10) {
       for (const pattern of ratingPatterns) {
         if (pattern.test(fieldId)) {
-          return value
+          console.log(`✅ Found rating via pattern match: ${fieldId} = ${numValue}`)
+          return numValue
         }
       }
     }
@@ -552,11 +584,24 @@ function findRatingFieldIntelligent(submissionData: Record<string, any>): number
 
   // Finally, look for any numeric field that could be a rating (1-5 or 1-10 range)
   for (const [fieldId, value] of Object.entries(submissionData)) {
-    if (typeof value === 'number' && value >= 1 && value <= 10 && Number.isInteger(value)) {
-      return value
+    let numValue: number | null = null
+
+    if (typeof value === 'number') {
+      numValue = value
+    } else if (typeof value === 'string' && !isNaN(Number(value))) {
+      numValue = Number(value)
+    }
+
+    if (numValue !== null && numValue >= 1 && numValue <= 10 && Number.isInteger(numValue)) {
+      // Skip fields that are clearly not ratings
+      if (!/id|count|index|year|month|day|phone|zip|postal/i.test(fieldId)) {
+        console.log(`✅ Found rating via fallback: ${fieldId} = ${numValue}`)
+        return numValue
+      }
     }
   }
 
+  console.log('❌ No rating found in submission data')
   return null
 }
 
@@ -564,11 +609,29 @@ function findRatingFieldIntelligent(submissionData: Record<string, any>): number
  * Intelligent feedback text detection
  */
 function findFeedbackTextIntelligent(submissionData: Record<string, any>): string | null {
-  // First try exact matches
-  const exactMatches = ['feedback', 'comment', 'comments', 'message', 'review', 'experience-feedback', 'thoughts', 'opinion', 'description', 'details']
+  console.log('🔍 Finding feedback text in submission data:', Object.keys(submissionData))
+
+  // First try exact matches (expanded list)
+  const exactMatches = [
+    'feedback', 'Feedback', 'FEEDBACK',
+    'comment', 'Comment', 'COMMENT',
+    'comments', 'Comments', 'COMMENTS',
+    'message', 'Message', 'MESSAGE',
+    'review', 'Review', 'REVIEW',
+    'experience', 'Experience', 'EXPERIENCE',
+    'experience-feedback', 'experience_feedback', 'experienceFeedback',
+    'thoughts', 'Thoughts', 'THOUGHTS',
+    'opinion', 'Opinion', 'OPINION',
+    'description', 'Description', 'DESCRIPTION',
+    'details', 'Details', 'DETAILS',
+    'text', 'Text', 'TEXT',
+    'content', 'Content', 'CONTENT'
+  ]
+
   for (const fieldName of exactMatches) {
     const value = submissionData[fieldName]
     if (typeof value === 'string' && value.trim()) {
+      console.log(`✅ Found feedback via exact match: ${fieldName} = "${value.substring(0, 50)}..."`)
       return value.trim()
     }
   }
@@ -587,13 +650,18 @@ function findFeedbackTextIntelligent(submissionData: Record<string, any>): strin
     /tell.*us/i,
     /additional/i,
     /other/i,
-    /anything/i
+    /anything/i,
+    /improve/i,
+    /suggest/i,
+    /like/i,
+    /dislike/i
   ]
 
   for (const [fieldId, value] of Object.entries(submissionData)) {
     if (typeof value === 'string' && value.trim()) {
       for (const pattern of textPatterns) {
         if (pattern.test(fieldId)) {
+          console.log(`✅ Found feedback via pattern match: ${fieldId} = "${value.substring(0, 50)}..."`)
           return value.trim()
         }
       }
@@ -606,13 +674,19 @@ function findFeedbackTextIntelligent(submissionData: Record<string, any>): strin
 
   for (const [fieldId, value] of Object.entries(submissionData)) {
     if (typeof value === 'string' && value.trim().length > longestText.length) {
-      // Skip fields that are likely personal info
-      if (!/name|email|phone|address/i.test(fieldId)) {
+      // Skip fields that are likely personal info or short values
+      if (!/name|email|phone|address|id|url|link/i.test(fieldId) && value.trim().length > 5) {
         longestText = value.trim()
         longestFieldId = fieldId
       }
     }
   }
 
-  return longestText.length > 10 ? longestText : null
+  if (longestText.length > 10) {
+    console.log(`✅ Found feedback via longest text: ${longestFieldId} = "${longestText.substring(0, 50)}..."`)
+    return longestText
+  }
+
+  console.log('❌ No feedback text found in submission data')
+  return null
 }

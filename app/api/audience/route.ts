@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
     const totalCustomers = customerProfiles.length
     const promoters = customerProfiles.filter(c => c.average_rating >= 4).length
     const detractors = customerProfiles.filter(c => c.average_rating <= 2).length
-    const passives = customerProfiles.filter(c => c.average_rating >= 3 && c.average_rating < 4).length
+    const passives = customerProfiles.filter(c => c.average_rating === 3).length
     const averageEngagement = totalCustomers > 0 
       ? Math.round(customerProfiles.reduce((sum, c) => sum + c.engagement_score, 0) / totalCustomers)
       : 0
